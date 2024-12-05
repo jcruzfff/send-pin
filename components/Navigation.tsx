@@ -2,21 +2,25 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, MapPin, User } from 'lucide-react';
+import { Home, MapPin, Search, User } from 'lucide-react';
+import { useAuth } from '@/lib/context/auth-context';
+import { cn } from '@/lib/utils';
 
 const Navigation = () => {
   const pathname = usePathname();
+  const { user } = useAuth();
+
+  if (!user || pathname === '/feed/new') return null;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-background dark:bg-background border-t border-border z-50">
+    <nav className="fixed bottom-0 left-0 right-0 bg-black z-50">
       <div className="flex justify-around items-center h-16">
         <Link 
           href="/home"
-          className={`flex flex-col items-center p-2 transition-colors ${
-            pathname === '/home' 
-              ? 'text-primary dark:text-primary' 
-              : 'text-muted-foreground dark:text-muted-foreground hover:text-primary dark:hover:text-primary'
-          }`}
+          className={cn(
+            "flex flex-col items-center p-2 transition-colors",
+            pathname === '/home' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+          )}
           prefetch={true}
         >
           <Home size={24} />
@@ -25,9 +29,10 @@ const Navigation = () => {
 
         <Link 
           href="/" 
-          className={`flex flex-col items-center p-2 transition-colors ${
-            pathname === '/' ? 'text-primary' : 'text-muted-foreground hover:text-primary'
-          }`}
+          className={cn(
+            "flex flex-col items-center p-2 transition-colors",
+            pathname === '/' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+          )}
           prefetch={true}
         >
           <MapPin size={24} />
@@ -35,10 +40,25 @@ const Navigation = () => {
         </Link>
 
         <Link 
-          href="/profile" 
-          className={`flex flex-col items-center p-2 transition-colors ${
-            pathname === '/profile' ? 'text-primary' : 'text-muted-foreground hover:text-primary'
-          }`}
+          href="/feed"
+          className={cn(
+            "flex flex-col items-center p-2 transition-colors",
+            pathname === '/feed' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+          )}
+          prefetch={true}
+        >
+          <Search size={24} />
+          <span className="text-xs">Feed</span>
+        </Link>
+
+        <Link
+          href="/profile"
+          className={cn(
+            "flex flex-col items-center p-2 transition-colors",
+            (pathname === '/profile' || pathname === '/favorites') 
+              ? 'text-white' 
+              : 'text-zinc-500 hover:text-zinc-300'
+          )}
           prefetch={true}
         >
           <User size={24} />

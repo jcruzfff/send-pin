@@ -2,18 +2,54 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
 
-    // This rule allows anyone with your Firestore database reference to view, edit,
-    // and delete all data in your Firestore database. It is useful for getting
-    // started, but it is configured to expire after 30 days because it
-    // leaves your app open to attackers. At that time, all client
-    // requests to your Firestore database will be denied.
-    //
-    // Make sure to write security rules for your app before that time, or else
-    // all client requests to your Firestore database will be denied until you Update
-    // your rules
-    match /{document=**} {
-      allow read, write: if request.time < timestamp.date(2024, 11, 28);
+    // Posts collection
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();  // Allow any authenticated user to update (for likes)
+      allow delete: if isAuthenticated() && 
+        resource.data.user.id == request.auth.uid;
+
+      // Likes subcollection
+      match /likes/{likeId} {
+        allow read: if true;
+        allow create, delete: if isAuthenticated() && likeId == request.auth.uid;
+      }
+    }
+
+    // Global spots
+    match /globalSpots/{spotId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && 
+        resource.data.createdBy == request.auth.uid;
+      allow delete: if isAuthenticated() && 
+        resource.data.createdBy == request.auth.uid;
+    }
+
+    // User spots
+    match /users/{userId}/spots/{spotId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if isOwner(userId);
+      allow update: if isAuthenticated() && (
+        isOwner(userId) || 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['favorites'])
+      );
+      allow delete: if isOwner(userId);
     }
   }
 }

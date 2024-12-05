@@ -1,22 +1,48 @@
+'use client';
+
 import { LucideIcon } from 'lucide-react';
-import Link from 'next/link';
+import { cn } from '@/lib/utils';
+import { Oxanium } from 'next/font/google';
+
+const oxanium = Oxanium({ 
+  subsets: ['latin'],
+  variable: '--font-oxanium',
+});
 
 interface CardProps {
   title: string;
   description: string;
   icon: LucideIcon;
-  href: string;
+  onClick?: () => void;
+  className?: string;
+  iconClassName?: string;
 }
 
-export function Card({ title, description, icon: Icon, href }: CardProps) {
+export default function Card({
+  title,
+  description,
+  icon: Icon,
+  onClick,
+  className = "",
+  iconClassName = ""
+}: CardProps) {
   return (
-    <Link 
-      href={href}
-      className="p-6 rounded-lg border border-border hover:border-foreground/20 transition-colors bg-background/50 flex flex-col items-start gap-3 group"
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex flex-col gap-2 p-6 rounded-lg border text-left",
+        "transition-all duration-200 hover:scale-[1.02]",
+        className
+      )}
     >
-      <Icon className="w-8 h-8 group-hover:text-primary transition-colors" />
-      <h2 className="font-semibold text-lg">{title}</h2>
-      <p className="text-sm text-muted-foreground">{description}</p>
-    </Link>
+      <Icon className={cn("w-8 h-8", iconClassName)} />
+      <div className="space-y-1">
+        <h3 className={cn(
+          "font-semibold text-[15px]",
+          oxanium.className
+        )}>{title}</h3>
+        <p className="text-sm text-zinc-400">{description}</p>
+      </div>
+    </button>
   );
 } 
