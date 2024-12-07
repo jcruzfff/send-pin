@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { ArrowLeft, Loader2, ChevronRight, Search, Heart } from "lucide-react";
 import { doc, getDoc, updateDoc, arrayUnion, arrayRemove, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -25,7 +25,7 @@ interface SpotData {
   createdBy: string;
   status?: 'draft' | 'submitted' | 'published';
   description?: string;
-  difficulty?: 'easy' | 'medium' | 'hard';
+  difficulty?: 'easy' | 'medium' | 'hard' | 'Not specified';
   material?: string;
   favorites?: string[];
 }
@@ -108,6 +108,72 @@ export function SpotDetail({
 
   const pathname = usePathname();
 
+  const loadSpot = useCallback(async () => {
+    if (!id) return;
+
+    try {
+      setLoading(true);
+      console.log('Loading spot with ID:', id);
+
+      // First try loading from global spots
+      const globalSpotDoc = await getDoc(doc(db, 'globalSpots', id));
+      
+      if (globalSpotDoc.exists()) {
+        console.log('Found spot in global spots');
+        const spotData = {
+          id,
+          ...globalSpotDoc.data(),
+          difficulty: globalSpotDoc.data().difficulty || 'Not specified',
+          material: globalSpotDoc.data().material || 'Not specified',
+          description: globalSpotDoc.data().description || 'No description available'
+        } as SpotData;
+        setLoadedSpot(spotData);
+        return;
+      }
+
+      // If not found in global spots and user is logged in, try user's spots
+      if (user) {
+        const userSpotDoc = await getDoc(doc(db, `users/${user.uid}/spots`, id));
+        
+        if (userSpotDoc.exists()) {
+          console.log('Found spot in user spots');
+          const spotData = {
+            id,
+            ...userSpotDoc.data(),
+            difficulty: userSpotDoc.data().difficulty || 'Not specified',
+            material: userSpotDoc.data().material || 'Not specified',
+            description: userSpotDoc.data().description || 'No description available'
+          } as SpotData;
+          setLoadedSpot(spotData);
+          return;
+        }
+
+        // If still not found, check user's favorites
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const userData = userDoc.data();
+        
+        if (userData?.favoriteSpots?.[id]) {
+          console.log('Found spot in favorites');
+          const spotData = {
+            ...userData.favoriteSpots[id],
+            difficulty: userData.favoriteSpots[id].difficulty || 'Not specified',
+            material: userData.favoriteSpots[id].material || 'Not specified',
+            description: userData.favoriteSpots[id].description || 'No description available'
+          };
+          setLoadedSpot(spotData);
+          return;
+        }
+      }
+
+      throw new Error('Spot not found');
+    } catch (err) {
+      console.error('Error loading spot:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load spot');
+    } finally {
+      setLoading(false);
+    }
+  }, [id, user]);
+
   useEffect(() => {
     if (initialSpot) {
       // If we have an initial spot, use it but ensure required fields
@@ -121,7 +187,7 @@ export function SpotDetail({
       // Otherwise load the spot by ID
       loadSpot();
     }
-  }, [id, initialSpot]);
+  }, [id, initialSpot, loadSpot]);
 
   useEffect(() => {
     if ("geolocation" in navigator) {
@@ -237,72 +303,6 @@ export function SpotDetail({
     }
   };
 
-  const loadSpot = async () => {
-    if (!id) return;
-
-    try {
-      setLoading(true);
-      console.log('Loading spot with ID:', id);
-
-      // First try loading from global spots
-      const globalSpotDoc = await getDoc(doc(db, 'globalSpots', id));
-      
-      if (globalSpotDoc.exists()) {
-        console.log('Found spot in global spots');
-        const spotData = {
-          id,
-          ...globalSpotDoc.data(),
-          difficulty: globalSpotDoc.data().difficulty || 'Not specified',
-          material: globalSpotDoc.data().material || 'Not specified',
-          description: globalSpotDoc.data().description || 'No description available'
-        } as SpotData;
-        setLoadedSpot(spotData);
-        return;
-      }
-
-      // If not found in global spots and user is logged in, try user's spots
-      if (user) {
-        const userSpotDoc = await getDoc(doc(db, `users/${user.uid}/spots`, id));
-        
-        if (userSpotDoc.exists()) {
-          console.log('Found spot in user spots');
-          const spotData = {
-            id,
-            ...userSpotDoc.data(),
-            difficulty: userSpotDoc.data().difficulty || 'Not specified',
-            material: userSpotDoc.data().material || 'Not specified',
-            description: userSpotDoc.data().description || 'No description available'
-          } as SpotData;
-          setLoadedSpot(spotData);
-          return;
-        }
-
-        // If still not found, check user's favorites
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        const userData = userDoc.data();
-        
-        if (userData?.favoriteSpots?.[id]) {
-          console.log('Found spot in favorites');
-          const spotData = {
-            ...userData.favoriteSpots[id],
-            difficulty: userData.favoriteSpots[id].difficulty || 'Not specified',
-            material: userData.favoriteSpots[id].material || 'Not specified',
-            description: userData.favoriteSpots[id].description || 'No description available'
-          };
-          setLoadedSpot(spotData);
-          return;
-        }
-      }
-
-      throw new Error('Spot not found');
-    } catch (err) {
-      console.error('Error loading spot:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load spot');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className={cn(
@@ -331,7 +331,7 @@ export function SpotDetail({
 
   return (
     <div className={cn(
-      "bg-background text-foreground",
+      "bg-black text-white",
       isInline ? "relative" : "min-h-screen"
     )}>
       {/* Only show header if NOT inline */}
@@ -347,7 +347,7 @@ export function SpotDetail({
             </button>
           </div>
           <div className="px-[18px]">
-            <h1 className="text-2xl font-bold mb-1">{loadedSpot.title}</h1>
+            <h1 className="text-2xl font-bold mb-1 text-white font-[Oxanium]">{loadedSpot.title}</h1>
             <p className="text-zinc-400 mb-6">
               {SPOT_CATEGORIES.find(cat => cat.id === loadedSpot.spotType)?.label || 'Uncategorized'}
             </p>
@@ -398,14 +398,14 @@ export function SpotDetail({
 
         {/* Location Section */}
         <div>
-          <div className="border-b border-zinc-800 ">
-            <h2 className="text-[12px] text-zinc-400  py-2">Location</h2>
+          <div className="border-b border-zinc-800">
+            <h2 className="text-[12px] text-zinc-400 py-2">Location</h2>
           </div>
           
           <div className="pt-4">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-xl font-medium">This location</h3>
+                <h3 className="text-xl font-medium text-white font-[Oxanium]">This location</h3>
                 {userLocation && loadedSpot && (
                   <p className="text-zinc-400 text-sm">
                     {calculateDistanceInMeters(userLocation, loadedSpot.position) < 1000
@@ -420,7 +420,7 @@ export function SpotDetail({
             {/* Map Preview */}
             <button
               onClick={openInGoogleMaps}
-              className="w-full h-48 bg-zinc-900 rounded-lg overflow-hidden relative group"
+              className="w-full h-48 bg-[#1F1F1E] rounded-lg overflow-hidden relative group"
             >
               <img
                 src={`https://maps.googleapis.com/maps/api/staticmap?center=${loadedSpot.position.lat},${loadedSpot.position.lng}&zoom=15&size=600x300&mapid=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`}
@@ -437,10 +437,10 @@ export function SpotDetail({
         {/* Description Section */}
         <div>
           <div className="border-b border-zinc-800">
-            <h2 className="text-[12px] text-zinc-400  py-2">Description</h2>
+            <h2 className="text-[12px] text-zinc-400 py-2">Description</h2>
           </div>
           
-          <div className="pt-4 ">
+          <div className="pt-4">
             {/* Difficulty and Material */}
             <div className="flex justify-between items-center">
               <div>
@@ -448,7 +448,7 @@ export function SpotDetail({
                 <p className="text-white">
                   {loadedSpot.difficulty && loadedSpot.difficulty !== 'Not specified' ? (
                     <span className={cn(
-                      "capitalize",
+                      "capitalize font-[Oxanium]",
                       loadedSpot.difficulty === 'easy' && "text-green-500",
                       loadedSpot.difficulty === 'medium' && "text-yellow-500",
                       loadedSpot.difficulty === 'hard' && "text-red-500"
@@ -456,13 +456,13 @@ export function SpotDetail({
                       {loadedSpot.difficulty}
                     </span>
                   ) : (
-                    <span className="text-zinc-600">Not specified</span>
+                    <span className="text-zinc-600 font-[Oxanium]">Not specified</span>
                   )}
                 </p>
               </div>
               <div>
                 <h3 className="text-sm font-medium text-zinc-400">Material</h3>
-                <p className="text-base capitalize">
+                <p className="text-base capitalize text-white font-[Oxanium]">
                   {loadedSpot.material && loadedSpot.material !== 'Not specified' 
                     ? loadedSpot.material 
                     : 'Not specified'}
@@ -473,7 +473,7 @@ export function SpotDetail({
             {/* Description Text */}
             <div className="mt-6">
               <h3 className="text-sm font-medium text-zinc-400">Description</h3>
-              <p className="text-base whitespace-pre-wrap leading-relaxed">
+              <p className="text-base whitespace-pre-wrap leading-relaxed text-white font-[Oxanium]">
                 {loadedSpot.description && loadedSpot.description !== 'No description available'
                   ? loadedSpot.description
                   : 'No description available'}
@@ -497,7 +497,7 @@ export function SpotDetail({
                 placeholder="Search tricks..."
                 value={searchTrick}
                 onChange={(e) => setSearchTrick(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 rounded-full border-none bg-zinc-900 
+                className="w-full pl-10 pr-4 py-3 rounded-full border-none bg-[#1F1F1E] 
                   text-white text-sm placeholder:text-zinc-500
                   focus:outline-none focus:ring-1 focus:ring-white/20"
               />
@@ -515,11 +515,11 @@ export function SpotDetail({
                       onClick={() => setExpandedTrickId(
                         expandedTrickId === trick.id ? null : trick.id
                       )}
-                      className="w-full bg-zinc-900 hover:bg-zinc-800 transition-colors rounded-xl overflow-hidden"
+                      className="w-full bg-gradient-to-b from-[#1F1F1E] to-[#0E0E0E] hover:from-[#2F2F2E] hover:to-[#1E1E1E] transition-all cursor-pointer border border-[#171717] rounded-[20px]"
                     >
                       <div className="flex items-center justify-between p-4">
                         <div className="text-left">
-                          <h3 className="font-medium text-white">{trick.name}</h3>
+                          <h3 className="font-medium text-white font-[Oxanium]">{trick.name}</h3>
                           <p className="text-sm text-zinc-400">
                             {trick.count} {trick.count === 1 ? 'person has' : 'people have'} done this
                           </p>
@@ -531,7 +531,7 @@ export function SpotDetail({
                           )}
                         />
                       </div>
-                      
+
                       {/* Expanded Content */}
                       <div className={cn(
                         "overflow-hidden transition-all duration-200 ease-in-out",
@@ -551,7 +551,7 @@ export function SpotDetail({
                             </div>
                             
                             {/* Video placeholder */}
-                            <div className="aspect-video bg-zinc-800 rounded-lg flex items-center justify-center">
+                            <div className="aspect-video bg-[#0E0E0E] rounded-lg flex items-center justify-center">
                               <span className="text-zinc-500">Video coming soon</span>
                             </div>
                             

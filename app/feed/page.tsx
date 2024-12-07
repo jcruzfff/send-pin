@@ -15,6 +15,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Oxanium } from 'next/font/google';
+import { cn } from '@/lib/utils';
+
+const oxanium = Oxanium({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-oxanium',
+});
 
 interface FeedPost {
   id: string;
@@ -56,7 +64,7 @@ function formatTimestamp(timestamp: any) {
 function VideoPost({ post }: { post: FeedPost }) {
   const { user } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const { ref: inViewRef, inView } = useInView({
     threshold: 0.7,
   });
@@ -65,7 +73,7 @@ function VideoPost({ post }: { post: FeedPost }) {
 
   const setRefs = useCallback(
     (node: HTMLDivElement | null) => {
-      containerRef.current = node;
+      if (containerRef) containerRef.current = node;
       inViewRef(node);
     },
     [inViewRef],
@@ -177,11 +185,11 @@ function VideoPost({ post }: { post: FeedPost }) {
             <AvatarFallback>{post.user.name[0]}</AvatarFallback>
           </Avatar>
           <div>
-            <p className="text-sm font-medium">{post.user.username}</p>
-            <p className="text-xs text-zinc-400">{post.spot.location}</p>
+            <p className={cn("text-sm font-medium text-white", oxanium.className)}>{post.user.username}</p>
+            <p className={cn("text-xs text-zinc-400", oxanium.className)}>{post.spot.location}</p>
           </div>
         </div>
-        <span className="text-xs text-zinc-500">
+        <span className={cn("text-xs text-zinc-500", oxanium.className)}>
           {formatTimestamp(post.timestamp)}
         </span>
       </div>
@@ -232,7 +240,7 @@ function VideoPost({ post }: { post: FeedPost }) {
             >
               <DropdownMenuItem 
                 onClick={handleShare}
-                className="text-white hover:bg-zinc-800 cursor-pointer gap-2"
+                className={cn("text-white hover:bg-zinc-800 cursor-pointer gap-2", oxanium.className)}
               >
                 <Share2 className="w-4 h-4" />
                 Share
@@ -241,7 +249,7 @@ function VideoPost({ post }: { post: FeedPost }) {
               {user && user.uid === post.user.id && (
                 <DropdownMenuItem 
                   onClick={handleDelete}
-                  className="text-red-400 hover:bg-zinc-800 cursor-pointer gap-2"
+                  className={cn("text-red-400 hover:bg-zinc-800 cursor-pointer gap-2", oxanium.className)}
                 >
                   <Trash2 className="w-4 h-4" />
                   Delete
@@ -252,8 +260,8 @@ function VideoPost({ post }: { post: FeedPost }) {
         </div>
 
         <div className="space-y-1">
-          <p className="text-sm font-medium">{likeCount} likes</p>
-          <p className="text-sm">
+          <p className={cn("text-sm font-medium text-white", oxanium.className)}>{likeCount} likes</p>
+          <p className={cn("text-sm text-white", oxanium.className)}>
             <span className="font-medium">{post.trick}</span>
             <span className="text-zinc-400"> at </span>
             <span className="font-medium">{post.spot.name}</span>

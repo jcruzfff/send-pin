@@ -3,6 +3,13 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import { ChevronLeft } from "lucide-react"
+import { Oxanium } from 'next/font/google'
+
+const oxanium = Oxanium({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-oxanium',
+});
 
 interface SlideMenuProps {
   open: boolean
@@ -54,11 +61,11 @@ const SlideMenu = React.forwardRef<
           <div className="flex items-center h-[65px] px-[18px] border-b border-zinc-800">
             <button
               onClick={() => onOpenChange(false)}
-              className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors"
+              className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors text-white"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
-            <h2 className="ml-2 text-lg font-semibold">Menu</h2>
+            <h2 className={cn("ml-2 text-lg font-semibold text-white", oxanium.className)}>Menu</h2>
           </div>
 
           {/* Content */}

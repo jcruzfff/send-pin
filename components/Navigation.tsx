@@ -5,6 +5,13 @@ import { usePathname } from 'next/navigation';
 import { Home, MapPin, Search, User } from 'lucide-react';
 import { useAuth } from '@/lib/context/auth-context';
 import { cn } from '@/lib/utils';
+import { Oxanium } from 'next/font/google';
+
+const oxanium = Oxanium({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-oxanium',
+});
 
 const Navigation = () => {
   const pathname = usePathname();
@@ -24,7 +31,7 @@ const Navigation = () => {
           prefetch={true}
         >
           <Home size={24} />
-          <span className="text-xs">Home</span>
+          <span className={cn("text-xs", oxanium.className)}>Home</span>
         </Link>
 
         <Link 
@@ -36,7 +43,7 @@ const Navigation = () => {
           prefetch={true}
         >
           <MapPin size={24} />
-          <span className="text-xs">Map</span>
+          <span className={cn("text-xs", oxanium.className)}>Map</span>
         </Link>
 
         <Link 
@@ -48,7 +55,7 @@ const Navigation = () => {
           prefetch={true}
         >
           <Search size={24} />
-          <span className="text-xs">Feed</span>
+          <span className={cn("text-xs", oxanium.className)}>Feed</span>
         </Link>
 
         <Link
@@ -62,7 +69,7 @@ const Navigation = () => {
           prefetch={true}
         >
           <User size={24} />
-          <span className="text-xs">Profile</span>
+          <span className={cn("text-xs", oxanium.className)}>Profile</span>
         </Link>
       </div>
     </nav>

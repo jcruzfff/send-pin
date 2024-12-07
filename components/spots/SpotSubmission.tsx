@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from 'react';
-import { ChevronLeft } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { ChevronLeft, Check } from 'lucide-react';
 import { collection, getDocs, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/context/auth-context';
@@ -13,7 +13,6 @@ interface SpotSubmissionProps {
 }
 
 interface UserSpot extends MarkerData {
-  id: string;
   status?: 'draft' | 'submitted' | 'published' | 'rejected';
   imageUrl?: string;
   thumbnailUrl?: string;
@@ -39,7 +38,7 @@ export function SpotSubmission({ onClose }: SpotSubmissionProps) {
     return available;
   };
 
-  const loadUserSpots = async () => {
+  const loadUserSpots = useCallback(async () => {
     if (!user) return;
     
     try {
@@ -50,16 +49,16 @@ export function SpotSubmission({ onClose }: SpotSubmissionProps) {
       
       const spots: UserSpot[] = [];
       snapshot.forEach((doc) => {
-        const spotData = doc.data() as UserSpot;
-        console.log('Spot data:', { id: doc.id, ...spotData });
+        const data = doc.data();
+        console.log('Spot data:', { id: doc.id, ...data });
         
-        if (!spotData.status || 
-            spotData.status === 'draft' || 
-            spotData.status === 'rejected') {
+        if (!data.status || 
+            data.status === 'draft' || 
+            data.status === 'rejected') {
           spots.push({
-            ...spotData,
+            ...data,
             id: doc.id
-          });
+          } as UserSpot);
         }
       });
       
@@ -70,14 +69,14 @@ export function SpotSubmission({ onClose }: SpotSubmissionProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     if (user) {
       setLoading(true);
       loadUserSpots();
     }
-  }, [user]);
+  }, [user, loadUserSpots]);
 
   const refreshSpots = () => {
     setLoading(true);
@@ -154,26 +153,26 @@ export function SpotSubmission({ onClose }: SpotSubmissionProps) {
           <div className="flex items-center h-[65px] px-[18px] border-b border-zinc-800">
             <button
               onClick={handleClose}
-              className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors"
+              className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors text-white"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
-            <h2 className="ml-2 text-lg font-semibold">Submit a Spot</h2>
+            <h2 className="ml-2 text-lg font-[Oxanium] font-semibold text-white">Submit a Spot</h2>
           </div>
 
           {/* Content */}
-          <div className="p-[18px]">
-            <p className="text-zinc-400 mb-6">
+          <div className="p-[18px] pb-24">
+            <p className="text-white mb-6">
               Submit one of your spots to be featured in the global spot book.
               All submissions are reviewed before being published.
             </p>
 
             {loading ? (
-              <div className="text-center py-8 text-zinc-400">
+              <div className="text-center py-8 text-white font-[Oxanium]">
                 Loading your spots...
               </div>
             ) : userSpots.length === 0 ? (
-              <div className="text-center py-8 text-zinc-400">
+              <div className="text-center py-8 text-white font-[Oxanium]">
                 You haven't created any spots yet.
               </div>
             ) : (
@@ -182,10 +181,10 @@ export function SpotSubmission({ onClose }: SpotSubmissionProps) {
                   <button
                     key={spot.id}
                     onClick={() => setSelectedSpotId(spot.id)}
-                    className={`w-full flex items-center gap-4 p-4 rounded-lg transition-colors ${
+                    className={`w-full flex items-center gap-4 p-4 bg-gradient-to-b from-[#1F1F1E] to-[#0E0E0E] hover:from-[#2F2F2E] hover:to-[#1E1E1E] transition-all cursor-pointer border border-[#171717] rounded-[20px] ${
                       selectedSpotId === spot.id
-                        ? 'bg-white/10 ring-1 ring-white/20'
-                        : 'bg-zinc-900 hover:bg-white/5'
+                        ? 'ring-1 ring-white/20'
+                        : ''
                     }`}
                   >
                     {/* Spot Image */}
@@ -197,7 +196,7 @@ export function SpotSubmission({ onClose }: SpotSubmissionProps) {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-zinc-700">
+                        <div className="w-full h-full flex items-center justify-center text-zinc-700 font-[Oxanium]">
                           No image
                         </div>
                       )}
@@ -205,30 +204,39 @@ export function SpotSubmission({ onClose }: SpotSubmissionProps) {
 
                     {/* Spot Info */}
                     <div className="flex-1 text-left">
-                      <h3 className="font-medium">{spot.title}</h3>
-                      <p className="text-sm text-zinc-400">
+                      <h3 className="font-medium font-[Oxanium] text-white">{spot.title}</h3>
+                      <p className="text-sm text-white font-[Oxanium]">
                         {spot.spotType || 'Uncategorized'}
                       </p>
+                    </div>
+
+                    {/* Checkmark for selected spot */}
+                    <div className="pr-6 flex items-center">
+                      {selectedSpotId === spot.id && (
+                        <Check className="w-6 h-6 text-[#a3ff12]" />
+                      )}
                     </div>
                   </button>
                 ))}
               </div>
             )}
 
-            {/* Submit Button */}
-            <button
-              onClick={handleContinue}
-              disabled={!selectedSpotId}
-              className={`w-full py-3 rounded-full font-medium mt-6 ${
-                selectedSpotId
-                  ? 'bg-[#a3ff12] text-black hover:bg-[#92e610]'
-                  : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
-              }`}
-            >
-              Continue
-            </button>
+            {/* Submit Button - Fixed at bottom */}
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-black">
+              <button
+                onClick={handleContinue}
+                disabled={!selectedSpotId}
+                className={`w-full py-3 rounded-full font-medium font-[Oxanium] ${
+                  selectedSpotId
+                    ? 'bg-[#a3ff12] text-black hover:bg-[#92e610]'
+                    : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                }`}
+              >
+                Continue
+              </button>
+            </div>
           </div>
-        </div>
+        </div> 
       )}
     </>
   );

@@ -4,6 +4,14 @@ import { useRef, useState, useCallback, useEffect } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { X, RotateCcw, Zap } from 'lucide-react';
+import { Oxanium } from 'next/font/google';
+import { cn } from '@/lib/utils';
+
+const oxanium = Oxanium({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-oxanium',
+});
 
 interface VideoRecorderProps {
   onClose: () => void;
@@ -233,7 +241,7 @@ export function VideoRecorder({ onClose, onVideoRecorded }: VideoRecorderProps) 
           >
             <ChevronLeft className="h-6 w-6" />
           </button>
-          <h1 className="text-lg font-medium text-white">New post</h1>
+          <h1 className={cn("text-lg font-medium text-white", oxanium.className)}>New post</h1>
           <div className="w-6" />
         </div>
       </div>
@@ -273,7 +281,7 @@ export function VideoRecorder({ onClose, onVideoRecorded }: VideoRecorderProps) 
             <Button
               variant="ghost"
               size="icon"
-              className="rounded-full"
+              className="rounded-full text-white hover:text-black hover:bg-white"
               onClick={flipCamera}
             >
               <RotateCcw className="h-5 w-5" />
@@ -281,7 +289,7 @@ export function VideoRecorder({ onClose, onVideoRecorded }: VideoRecorderProps) 
             <Button
               variant="ghost"
               size="icon"
-              className="rounded-full"
+              className="rounded-full text-white hover:text-black hover:bg-white"
             >
               <Zap className="h-5 w-5" />
             </Button>

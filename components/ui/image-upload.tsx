@@ -43,12 +43,19 @@ export function ImageUpload({ onImageUploaded, initialImage }: ImageUploadProps)
       onImageUploaded(downloadUrl);
     } catch (error) {
       console.error('Error uploading image:', error);
-      console.error('Error details:', {
-        code: error.code,
-        message: error.message,
-        serverResponse: error.serverResponse,
-        stack: error.stack
-      });
+      
+      // Type guard for FirebaseError or Error
+      if (error && typeof error === 'object') {
+        const errorDetails: Record<string, unknown> = {};
+        
+        // Check for common error properties
+        if ('code' in error) errorDetails.code = error.code;
+        if ('message' in error) errorDetails.message = error.message;
+        if ('serverResponse' in error) errorDetails.serverResponse = error.serverResponse;
+        if ('stack' in error) errorDetails.stack = error.stack;
+        
+        console.error('Error details:', errorDetails);
+      }
     } finally {
       setIsUploading(false);
     }
@@ -57,7 +64,7 @@ export function ImageUpload({ onImageUploaded, initialImage }: ImageUploadProps)
   return (
     <div 
       onClick={() => fileInputRef.current?.click()}
-      className="relative w-24 h-24 bg-muted rounded-md overflow-hidden cursor-pointer 
+      className="relative w-24 h-24 bg-zinc-600/50 rounded-2xl overflow-hidden cursor-pointer 
                  hover:opacity-90 transition-opacity"
     >
       {previewUrl ? (
@@ -68,7 +75,7 @@ export function ImageUpload({ onImageUploaded, initialImage }: ImageUploadProps)
         />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center">
-          <ImageIcon className="h-8 w-8 text-muted-foreground" />
+          <ImageIcon className="h-8 w-8 text-zinc-400" />
         </div>
       )}
       

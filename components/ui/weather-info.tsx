@@ -105,7 +105,7 @@ export const WeatherInfo = ({ lat, lng, compact = false }: WeatherInfoProps) => 
   ) : (
     <div className="flex flex-col items-center gap-1">
       <WeatherIcon />
-      <span className="text-sm font-medium">{weather.temp}°</span>
+      <span className="text-sm font-medium text-white font-[Oxanium]">{weather.temp}°</span>
     </div>
   );
 }; 

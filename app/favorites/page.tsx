@@ -9,6 +9,14 @@ import Link from 'next/link';
 import { SPOT_CATEGORIES } from "@/lib/constants";
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { Oxanium } from 'next/font/google';
+import { cn } from '@/lib/utils';
+
+const oxanium = Oxanium({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-oxanium',
+});
 
 interface FavoriteSpot {
   id: string;
@@ -121,9 +129,11 @@ export default function FavoritesPage() {
             <input
               type="text"
               placeholder="Search for spot"
-              className="w-full pl-10 pr-4 py-3 rounded-full border-none bg-zinc-900 
-                       text-white text-sm placeholder:text-zinc-500
-                       focus:outline-none focus:ring-1 focus:ring-white/20"
+              className="w-full pl-10 pr-4 py-3 rounded-full 
+                                 bg-transparent border border-[#171717]
+                                 text-white text-sm placeholder:text-zinc-500
+                                 focus:outline-none focus:ring-1 focus:ring-white/20
+                                 focus:ring-inset"
             />
           </div>
         </div>
@@ -145,10 +155,14 @@ export default function FavoritesPage() {
               <Link
                 key={spot.id}
                 href={`/spots/${spot.id}?from=favorites`}
-                className="flex items-center gap-4 p-4 bg-zinc-900 hover:bg-zinc-800 
-                         transition-colors rounded-xl"
+                className="flex items-center gap-4 p-4 bg-gradient-to-b from-[#1F1F1E] to-[#0E0E0E] 
+                          hover:from-[#2F2F2E] hover:to-[#1E1E1E] transition-all cursor-pointer mt-3 first:mt-0
+                          border border-[#171717]"
+                style={{ borderRadius: '20px' }}
               >
-                <div className="w-16 h-16 bg-zinc-800 rounded-lg overflow-hidden flex-shrink-0">
+                <div className="w-16 h-16 bg-zinc-800 overflow-hidden flex-shrink-0" 
+                     style={{ borderRadius: '10px' }}
+                >
                   {spot.imageUrl ? (
                     <Image
                       src={spot.thumbnailUrl || spot.imageUrl}
@@ -166,7 +180,7 @@ export default function FavoritesPage() {
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                  <h2 className="font-medium text-white truncate">{spot.title}</h2>
+                  <h2 className={cn("font-medium text-white truncate", oxanium.className)}>{spot.title}</h2>
                   <p className="text-sm text-zinc-400">
                     {SPOT_CATEGORIES.find(cat => cat.id === spot.spotType)?.label || 'Uncategorized'}
                   </p>

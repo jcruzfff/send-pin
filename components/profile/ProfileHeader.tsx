@@ -9,6 +9,14 @@ import { SlideMenu } from '@/components/ui/slide-menu';
 import { SpotSubmission } from '@/components/spots/SpotSubmission';
 import Link from 'next/link';
 import { NotificationCenter } from '@/components/admin/NotificationCenter';
+import { Oxanium } from 'next/font/google';
+import { cn } from '@/lib/utils';
+
+const oxanium = Oxanium({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-oxanium',
+});
 
 interface ProfileHeaderProps {
   showTitle?: boolean;
@@ -42,19 +50,19 @@ export function ProfileHeader({ showTitle = true, isHome = false }: ProfileHeade
 
   return (
     <>
-      <div className="sticky top-0 z-[100] bg-black w-full h-[65px]">
-        <div className="flex justify-between items-center px-[18px] py-4 max-w-5xl mx-auto w-full h-full">
+      <div className="sticky top-0 z-[100] bg-black w-full h-[65px] text-white">
+        <div className="flex justify-between items-center px-[18px] py-4 max-w-5xl mx-auto w-full h-full text-white">
           {isHome ? (
-            <h1 className="text-lg font-semibold">Spottt</h1>
+            <h1 className={cn("text-lg text-white font-semibold", oxanium.className)}>Spottt</h1>
           ) : (
-            showTitle && <h1 className="text-lg font-semibold">Profile</h1>
+            showTitle && <h1 className={cn("text-lg text-white font-semibold", oxanium.className)}>Profile</h1>
           )}
           
           <button 
             onClick={() => setMenuOpen(true)}
             className="w-8 h-8 relative group"
           >
-            <div className="absolute inset-[-1px] rounded-full border border-zinc-700 group-hover:border-zinc-600 transition-colors" />
+            <div className="absolute inset-[-1px] rounded-full border border-zinc-700 group-hover:border-zinc-600 transition-colors text-white" />
             <Avatar className="w-full h-full">
               <AvatarImage
                 src={user?.photoURL || undefined}
@@ -69,7 +77,7 @@ export function ProfileHeader({ showTitle = true, isHome = false }: ProfileHeade
       </div>
 
       <SlideMenu open={menuOpen} onOpenChange={setMenuOpen}>
-        <div className="px-[18px] py-6">
+        <div className="px-[18px] py-6 text-white">
           {/* User Info */}
           <div className="flex items-center gap-4 mb-8">
             <Avatar className="w-16 h-16">
@@ -82,7 +90,7 @@ export function ProfileHeader({ showTitle = true, isHome = false }: ProfileHeade
               </AvatarFallback>
             </Avatar>
             <div>
-              <h3 className="font-medium text-lg">
+              <h3 className={cn("font-medium text-lg", oxanium.className)}>
                 {user?.displayName || 'Anonymous User'}
               </h3>
               <p className="text-sm text-zinc-400">
@@ -98,17 +106,17 @@ export function ProfileHeader({ showTitle = true, isHome = false }: ProfileHeade
                 setMenuOpen(false);
                 setShowSpotSubmission(true);
               }}
-              className="w-full px-4 py-3 text-left rounded-lg hover:bg-white/10 transition-colors"
+              className={cn("w-full px-4 py-3 text-left rounded-lg hover:bg-white/10 transition-colors", oxanium.className)}
             >
               Submit a spot
             </button>
-            <button className="w-full px-4 py-3 text-left rounded-lg hover:bg-white/10 transition-colors">
+            <button className={cn("w-full px-4 py-3 text-left rounded-lg hover:bg-white/10 transition-colors", oxanium.className)}>
               Add a trick
             </button>
-            <button className="w-full px-4 py-3 text-left rounded-lg hover:bg-white/10 transition-colors">
+            <button className={cn("w-full px-4 py-3 text-left rounded-lg hover:bg-white/10 transition-colors", oxanium.className)}>
               Tip a skater
             </button>
-            <button className="w-full px-4 py-3 text-left rounded-lg hover:bg-white/10 transition-colors">
+            <button className={cn("w-full px-4 py-3 text-left rounded-lg hover:bg-white/10 transition-colors", oxanium.className)}>
               Report Updates
             </button>
             {isAdmin && (
@@ -117,8 +125,7 @@ export function ProfileHeader({ showTitle = true, isHome = false }: ProfileHeade
                   setMenuOpen(false);
                   setShowNotifications(true);
                 }}
-                className="w-full px-4 py-3 text-left rounded-lg hover:bg-white/10 transition-colors
-                          flex items-center"
+                className={cn("w-full px-4 py-3 text-left rounded-lg hover:bg-white/10 transition-colors flex items-center", oxanium.className)}
               >
                 <span>Review Submissions</span>
                 <div className={`flex items-center justify-center h-5 min-w-[20px] ml-3
@@ -132,14 +139,14 @@ export function ProfileHeader({ showTitle = true, isHome = false }: ProfileHeade
             <div className="h-px bg-zinc-800 my-2" />
             <Link 
               href="/settings"
-              className="block w-full px-4 py-3 text-left rounded-lg hover:bg-white/10 transition-colors"
+              className={cn("block w-full px-4 py-3 text-left rounded-lg hover:bg-white/10 transition-colors", oxanium.className)}
               onClick={() => setMenuOpen(false)}
             >
               Settings
             </Link>
             <button 
               onClick={() => signOut()}
-              className="w-full px-4 py-3 text-left rounded-lg hover:bg-white/10 transition-colors text-red-400"
+              className={cn("w-full px-4 py-3 text-left rounded-lg hover:bg-white/10 transition-colors text-red-400", oxanium.className)}
             >
               Sign out
             </button>

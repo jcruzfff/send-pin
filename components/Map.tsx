@@ -5,8 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Globe, List, Loader2, Image as ImageIcon, Search, ChevronRight, X, ChevronDown, MapPin } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { GoogleMap, useLoadScript } from '@react-google-maps/api';
-import type { StandaloneSearchBox as StandaloneSearchBoxType, StandaloneSearchBoxProps } from '@react-google-maps/api';
+import { useLoadScript } from '@react-google-maps/api';
+import type { Libraries } from '@react-google-maps/api';
 import { ImageUpload } from "@/components/ui/image-upload";
 import { WeatherInfo } from "@/components/ui/weather-info";
 import { db, storage } from '@/lib/firebase';
@@ -18,8 +18,18 @@ import { useRouter } from "next/navigation";
 import { OptimizedImage } from "@/components/ui/optimized-image";
 import Link from 'next/link';
 
+const StandaloneSearchBox = dynamic(
+  () => import('@react-google-maps/api').then(mod => mod.StandaloneSearchBox),
+  { ssr: false }
+);
+
+const GoogleMap = dynamic(
+  () => import('@react-google-maps/api').then(mod => mod.GoogleMap),
+  { ssr: false }
+);
+
 interface MarkerData {
-  position: google.maps.LatLngLiteral;
+  position: google.maps.LatLngLiteral; 
   title: string;
   id: string;
   spotType?: string;
@@ -89,7 +99,7 @@ const SpotCategories = ({ activeCategory, onCategoryClick, className }: {
               key={category.id}
               onClick={() => onCategoryClick(category.id)}
               className={cn(
-                "flex-none px-4 py-2 rounded-full text-sm font-medium transition-colors border",
+                "flex-none px-4 py-2 rounded-full text-sm font-medium transition-colors border font-[Oxanium]",
                 activeCategory === category.id
                   ? "bg-white text-black border-transparent"
                   : "bg-[#1D1E1F] text-white hover:bg-[#2D2E2F] border-white/30"
@@ -907,7 +917,7 @@ const MapComponent = () => {
   return (
     <div className="fixed inset-x-0 bottom-16 top-0 flex flex-col">
       {/* Search and toggle - Always visible */}
-      <div className="flex-none bg-none px-4 py-3 z-50">
+      <div className="flex-none bg-black px-4 py-3 z-50">
         <div className="max-w-2xl mx-auto flex items-center gap-4">
           {/* Search Box */}
           <div className="flex-1 relative">
@@ -919,50 +929,59 @@ const MapComponent = () => {
               placeholder={activeCategory 
                 ? `Search ${SPOT_CATEGORIES.find(cat => cat.id === activeCategory)?.label.toLowerCase() || 'spots'}` 
                 : "Search for a spot"}
-              className="w-full px-4 py-3 pl-10 rounded-full border-none bg-zinc-900 
+              className="w-full px-4 py-3 pl-10 rounded-full border border-zinc-800 bg-black 
                        text-white text-sm placeholder:text-zinc-500
                        focus:outline-none focus:ring-1 focus:ring-white/20"
             />
             
             {/* Show dropdown only in map view */}
             {isMapView && isSearching && searchResults.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 max-h-60 overflow-y-auto 
-                            rounded-lg bg-zinc-900 border border-zinc-800 shadow-lg z-[60]">
-                {searchResults.map((result) => (
-                  <button
-                    key={result.id}
-                    onClick={() => handleSearchResultClick(result.id)}
-                    className="w-full flex items-center gap-3 p-3 hover:bg-zinc-800 transition-colors text-left"
-                  >
-                    <div className="w-10 h-10 bg-zinc-800 rounded-md overflow-hidden flex-shrink-0">
-                      {result.imageUrl ? (
-                        <img
-                          src={result.thumbnailUrl || `${result.imageUrl}?w=96&h=96&q=50`}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <MapPin className="w-4 h-4 text-zinc-500" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-medium text-white">{result.title}</h4>
-                      {result.spotType && (
-                        <p className="text-sm text-zinc-400">{result.spotType}</p>
-                      )}
-                      {result.distance && (
-                        <p className="text-xs text-zinc-500">
-                          {result.distance < 1000
-                            ? `${Math.round(result.distance)}m away`
-                            : `${(result.distance / 1000).toFixed(1)}km away`}
-                        </p>
-                      )}
-                    </div>
-                  </button>
-                ))}
-              </div>
+              <>
+                <div 
+                  className="fixed inset-0 z-[50]" 
+                  onClick={() => setIsSearching(false)}
+                />
+                <div 
+                  className="absolute top-full left-0 right-0 mt-2 max-h-60 overflow-y-auto 
+                            rounded-lg bg-zinc-900 border border-zinc-800 shadow-lg z-[60]"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {searchResults.map((result) => (
+                    <button
+                      key={result.id}
+                      onClick={() => handleSearchResultClick(result.id)}
+                      className="w-full flex items-center gap-3 p-3 hover:bg-zinc-800 transition-colors text-left"
+                    >
+                      <div className="w-12 h-12 bg-zinc-800 rounded-md overflow-hidden flex-shrink-0">
+                        {result.imageUrl ? (
+                          <img
+                            src={result.thumbnailUrl || `${result.imageUrl}?w=96&h=96&q=50`}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <MapPin className="w-4 h-4 text-zinc-500" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-medium text-white font-[Oxanium]">{result.title}</h4>
+                        {result.spotType && (
+                          <p className="text-sm text-zinc-400">{result.spotType}</p>
+                        )}
+                        {result.distance && (
+                          <p className="text-xs text-zinc-500">
+                            {result.distance < 1000
+                              ? `${Math.round(result.distance)}m away`
+                              : `${(result.distance / 1000).toFixed(1)}km away`}
+                          </p>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
           </div>
 
@@ -1059,13 +1078,13 @@ const MapComponent = () => {
             >
               <div 
                 className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 
-                          bg-background rounded-3xl shadow-2xl w-[340px] z-50 overflow-hidden
-                          border border-border"
+                          bg-black rounded-3xl shadow-2xl w-[340px] z-50 overflow-hidden
+                          border border-zinc-800"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Header */}
                 <div className="flex items-center justify-between p-4">
-                  <h3 className="text-lg font-medium">
+                  <h3 className="text-lg font-medium font-[Oxanium] text-white">
                     {spotState === 'locked' ? selectedMarker.title : 
                      spotState === 'editing' ? 'Edit spot' : 'New spot'}
                   </h3>
@@ -1080,7 +1099,7 @@ const MapComponent = () => {
                         height="18"
                         viewBox="0 0 24 24"
                         fill="none"
-                        stroke="currentColor"
+                        stroke="white"
                         strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -1097,9 +1116,9 @@ const MapComponent = () => {
                         setSelectedMarker(null);
                         setSpotState('new');
                       }}
-                      className="p-1.5 rounded-full hover:bg-white/10 transition-colors"
+                      className="p-1.5 rounded-full hover:bg-zinc-600 transition-colors"
                     >
-                      <X className="h-5 w-5" />
+                      <X className="h-5 w-5 text-white" />
                     </button>
                   )}
                 </div>
@@ -1109,7 +1128,7 @@ const MapComponent = () => {
                   <div className="flex gap-4">
                     {/* Image section with rounded corners */}
                     {spotState === 'locked' ? (
-                      <div className="w-24 h-24 bg-white/5 rounded-2xl overflow-hidden">
+                      <div className="w-24 h-24 bg-zinc-800/50 rounded-2xl overflow-hidden">
                         {selectedMarker.imageUrl ? (
                           <img 
                             src={selectedMarker.imageUrl} 
@@ -1118,7 +1137,7 @@ const MapComponent = () => {
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <ImageIcon className="h-8 w-8 text-white/20" />
+                            <ImageIcon className="h-8 w-8 text-zinc-400" />
                           </div>
                         )}
                       </div>
@@ -1135,7 +1154,7 @@ const MapComponent = () => {
                           );
                         }}
                         initialImage={selectedMarker.imageUrl}
-                        className="w-24 h-24 rounded-2xl bg-white/5"
+                        className="w-24 h-24 rounded-2xl bg-zinc-800/50"
                       />
                     )}
 
@@ -1143,7 +1162,7 @@ const MapComponent = () => {
                     <div className="flex-1 space-y-2">
                       {spotState === 'locked' ? (
                         <div>
-                          <h2 className="text-lg font-semibold">{selectedMarker.title}</h2>
+                          <h2 className="text-lg font-semibold text-white font-[Oxanium]">{selectedMarker.title}</h2>
                           <p className="text-sm text-white/60">
                             {spotCategories.find(cat => cat.id === selectedMarker.spotType)?.label || 'Uncategorized'}
                           </p>
@@ -1164,16 +1183,19 @@ const MapComponent = () => {
                                 setEditingTitle('');
                               }
                             }}
-                            className="w-full px-3 py-2 text-sm bg-white/5 rounded-xl border-none
-                                     focus:outline-none focus:ring-1 focus:ring-white/20
-                                     placeholder:text-white/40"
+                            className={cn(
+                              "w-full px-3 py-2 text-sm bg-black rounded-xl border border-zinc-800",
+                              "focus:outline-none focus:ring-1 focus:ring-white/20",
+                              "placeholder:text-zinc-400 font-[Oxanium]",
+                              editingTitle === 'New Location' ? 'text-zinc-400' : 'text-white'
+                            )}
                             placeholder="Enter spot name"
                           />
                           <div className="relative">
                             <select 
-                              className="w-full px-3 py-2 text-sm bg-white/5 rounded-xl border-none
+                              className="w-full px-3 py-2 text-sm bg-black rounded-xl border border-zinc-800
                                        focus:outline-none focus:ring-1 focus:ring-white/20
-                                       appearance-none pr-10"
+                                       appearance-none pr-10 font-[Oxanium] text-zinc-400"
                               value={selectedMarker.spotType || ''}
                               onChange={(e) => {
                                 const newSpotType = e.target.value;
@@ -1190,7 +1212,7 @@ const MapComponent = () => {
                                 );
                               }}
                             >
-                              <option value="" disabled>Select spot type</option>
+                              <option value="" disabled className="text-zinc-400">Select spot type</option>
                               {spotCategories.map(category => (
                                 <option key={category.id} value={category.id}>
                                   {category.label}
@@ -1210,7 +1232,7 @@ const MapComponent = () => {
                       <div className="text-white/60 flex flex-col gap-1">
                         <span className="text-white/40">Distance away</span>
                         {userLocation ? (
-                          <span className="text-white">{calculateDistance(userLocation, selectedMarker.position)}</span>
+                          <span className="text-white font-[Oxanium]">{calculateDistance(userLocation, selectedMarker.position)}</span>
                         ) : (
                           <span>Enable location to see</span>
                         )}
@@ -1231,10 +1253,10 @@ const MapComponent = () => {
                         onClick={handleTitleSubmit}
                         disabled={!isSpotValid(selectedMarker)}
                         className={cn(
-                          "flex-1 rounded-xl h-11 px-4 py-2 text-sm font-medium transition-colors",
+                          "flex-1 rounded-[20px] h-11 px-4 py-2 text-sm font-medium transition-all font-[Oxanium]",
                           isSpotValid(selectedMarker)
-                            ? "bg-[#B2FF4D] text-black hover:bg-[#B2FF4D]/90"
-                            : "bg-white/5 text-white/40 cursor-not-allowed"
+                            ? "bg-gradient-to-b from-[#B2FF4D] to-[#95DB3F] hover:from-[#95DB3F] hover:to-[#7CBA34] text-black"
+                            : "bg-zinc-600/50 text-zinc-400 cursor-not-allowed"
                         )}
                       >
                         {spotState === 'editing' ? 'Update' : 'Save'}
@@ -1346,12 +1368,12 @@ const MapComponent = () => {
 
                       {/* Spot Details */}
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-white truncate">{marker.title}</h3>
+                        <h3 className="font-medium text-white truncate font-[Oxanium]">{marker.title}</h3>
                         <div className="space-y-0.5">
                           <p className="text-sm text-zinc-400">
                             {SPOT_CATEGORIES.find(cat => cat.id === marker.spotType)?.label || 'Uncategorized'}
                           </p>
-                          <p className="text-sm text-zinc-500">
+                          <p className="text-sm text-white font-[Oxanium]">
                             {marker.distance < 1000
                               ? `${Math.round(marker.distance)}m away`
                               : `${(marker.distance / 1000).toFixed(1)}km away`}

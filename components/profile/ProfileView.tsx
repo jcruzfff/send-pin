@@ -5,13 +5,14 @@ import { useAuth } from '@/lib/context/auth-context';
 import { AvatarImage, Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { EditProfileView } from './EditProfileView';
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { ChevronLeft, MoreHorizontal, Share2, Trash2 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useInView } from 'react-intersection-observer';
-import { deleteObject } from 'firebase/storage';
+import { deleteObject, ref as storageRef } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
+import { Oxanium } from 'next/font/google';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +20,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { deleteDoc, doc } from 'firebase/firestore';
+
+const oxanium = Oxanium({ 
+  subsets: ['latin'],
+  variable: '--font-oxanium',
+});
 
 interface ProfileViewProps {
   isCurrentUser?: boolean;
@@ -34,14 +40,14 @@ interface VideoPost {
     name: string;
     username: string;
     avatar?: string;
-  };x
+  };
   spot: {
     name: string;
     location: string;
   };
   trick: string;
   likes: number;
-  timestamp: any;
+  timestamp: Timestamp;
 }
 
 interface UserSpot {
@@ -55,12 +61,10 @@ interface UserSpot {
 
 type ViewMode = 'grid' | 'feed';
 
-// Add formatTimestamp function
-function formatTimestamp(timestamp: any) {
+function formatTimestamp(timestamp: Timestamp | null): string {
   if (!timestamp) return '';
   
-  // Convert Firebase Timestamp to Date
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  const date = timestamp.toDate();
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
 
   if (seconds < 60) return `${seconds}s`;
@@ -173,7 +177,7 @@ export function ProfileView({ isCurrentUser = true }: ProfileViewProps): ReactEl
         // Delete video from storage
         const videoUrl = new URL(post.video.url);
         const videoPath = decodeURIComponent(videoUrl.pathname.split('/o/')[1].split('?')[0]);
-        const videoRef = ref(storage, videoPath);
+        const videoRef = storageRef(storage, videoPath);
         await deleteObject(videoRef);
 
         // Delete post document
@@ -306,22 +310,22 @@ export function ProfileView({ isCurrentUser = true }: ProfileViewProps): ReactEl
               src={profileData.photoURL || undefined}
               alt={profileData.displayName}
             />
-            <AvatarFallback className="text-lg">
+            <AvatarFallback className="text-lg text-white">
               {profileData.displayName[0].toUpperCase()}
             </AvatarFallback>
           </Avatar>
 
           <div className="flex-1">
-            <h2 className="text-xl font-semibold mb-1">
+            <h2 className={cn("text-xl font-semibold mb-1 text-white", oxanium.className)}>
               {profileData.displayName}
             </h2>
             <div className="flex gap-4 text-[15px]">
               <div className="flex gap-1">
-                <span className="text-white">1230</span>
+                <span className={cn("text-white", oxanium.className)}>1230</span>
                 <span className="text-zinc-400">Followers</span>
               </div>
               <div className="flex gap-1">
-                <span className="text-white">460</span>
+                <span className={cn("text-white", oxanium.className)}>460</span>
                 <span className="text-zinc-400">Following</span>
               </div>
             </div>
@@ -331,8 +335,10 @@ export function ProfileView({ isCurrentUser = true }: ProfileViewProps): ReactEl
         {isCurrentUser && (
           <button 
             onClick={() => setIsEditing(true)}
-            className="w-full mt-4 py-2 rounded-md bg-zinc-800 hover:bg-zinc-700 
-                     transition-colors text-sm font-medium"
+            className={cn(
+              "w-full mt-4 py-2 rounded-md bg-zinc-800 hover:bg-zinc-700 transition-colors text-sm font-medium text-white",
+              oxanium.className
+            )}
           >
             Edit profile
           </button>

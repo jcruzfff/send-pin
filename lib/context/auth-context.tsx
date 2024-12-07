@@ -133,6 +133,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">
+      Loading...
+    </div>;
+  }
+
   if (error) {
     return <div className="min-h-screen flex items-center justify-center text-destructive">
       Error: {error}

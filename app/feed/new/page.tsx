@@ -9,6 +9,14 @@ import { collection, getDocs, addDoc, serverTimestamp } from 'firebase/firestore
 import { ref, uploadBytes, getDownloadURL, uploadBytesResumable } from 'firebase/storage';
 import { useAuth } from '@/lib/context/auth-context';
 import { getLocationFromCoordinates } from '@/lib/google-maps';
+import { Oxanium } from 'next/font/google';
+import { cn } from '@/lib/utils';
+
+const oxanium = Oxanium({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-oxanium',
+});
 
 interface Spot {
   id: string;
@@ -288,21 +296,21 @@ const NewPostPage = () => {
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="bg-black">
-            <div className="flex items-center justify-between px-4 h-[65px]">
+            <div className="flex items-center justify-between px-4 h-[65px] text-white">
               <button
                 onClick={() => setStep('recording')}
                 className="text-white hover:text-zinc-300 transition-colors"
               >
-                <ChevronLeft className="h-6 w-6" />
+                <ChevronLeft className="h-6 w-6 text-white" />
               </button>
-              <h1 className="text-lg font-medium text-white">New Post</h1>
+              <h1 className={cn("text-lg font-medium text-white", oxanium.className)}>New Post</h1>
               <div className="w-6" />
             </div>
           </div>
 
           {/* Content */}
           <div className="flex-1 px-4">
-            {/* Video Thumbnail - Updated size */}
+            {/* Video Thumbnail */}
             <div className="w-[220px] h-[220px] rounded-2xl overflow-hidden bg-zinc-900 mb-8">
               {videoBlob && (
                 <video 
@@ -314,7 +322,7 @@ const NewPostPage = () => {
 
             {/* Search Spot */}
             <div className="space-y-2 mb-6 relative">
-              <h2 className="text-lg font-medium">Search Spot</h2>
+              <h2 className={cn("text-lg font-medium text-white", oxanium.className)}>Search Spot</h2>
               <div className="relative flex items-center">
                 <Search className="absolute left-4 w-5 h-5 text-zinc-400" />
                 <input
@@ -322,16 +330,14 @@ const NewPostPage = () => {
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
                   placeholder="Choose the spot you skated"
-                  className="w-full h-14 pl-12 pr-4 rounded-full bg-white/[0.04] hover:bg-white/[0.08] 
-                            border border-[#2E2E2E] focus:border-[#3E3E45] focus:bg-white/[0.08]
-                            text-white placeholder:text-zinc-400 outline-none transition-colors"
+                  className={cn("w-full h-14 pl-12 pr-4 rounded-full bg-white/[0.04] hover:bg-white/[0.08] border border-[#2E2E2E] focus:border-[#3E3E45] focus:bg-white/[0.08] text-white placeholder:text-zinc-400 outline-none transition-colors", oxanium.className)}
                 />
               </div>
 
               {/* Search Results */}
               {searchQuery && filteredSpots.length > 0 && (
                 <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-50">
-                  <div className="bg-[#121212] rounded-2xl shadow-lg overflow-hidden">
+                  <div className="bg-[#121212] rounded-2xl shadow-lg overflow-hidden border border-[#2E2E2E]">
                     <div className="max-h-[240px] overflow-y-auto">
                       {filteredSpots.slice(0, 6).map((spot) => (
                         <button
@@ -344,7 +350,7 @@ const NewPostPage = () => {
                           className="w-full px-4 py-3 text-left hover:bg-white/[0.08] transition-colors"
                         >
                           <div className="flex flex-col gap-0.5">
-                            <p className="font-medium text-white">{spot.title}</p>
+                            <p className={cn("font-medium text-white", oxanium.className)}>{spot.title}</p>
                             <div className="flex items-center gap-2 text-sm text-zinc-400">
                               <span>{capitalizeSpotType(spot.spotType)}</span>
                               {spot.location && (
@@ -365,22 +371,20 @@ const NewPostPage = () => {
 
             {/* Name Your Trick */}
             <div className="space-y-2">
-              <h2 className="text-lg font-medium">Name Your Trick</h2>
+              <h2 className={cn("text-lg font-medium text-white", oxanium.className)}>Name Your Trick</h2>
               <div className="relative flex items-center">
                 <input
                   type="text"
                   value={trick}
                   onChange={(e) => setTrick(e.target.value)}
                   placeholder="Name or select your trick"
-                  className="w-full h-14 px-4 rounded-full bg-white/[0.04] hover:bg-white/[0.08]
-                            border border-[#2E2E2E] focus:border-[#3E3E45] focus:bg-white/[0.08]
-                            text-white placeholder:text-zinc-400 outline-none transition-colors"
+                  className={cn("w-full h-14 px-4 rounded-full bg-white/[0.04] hover:bg-white/[0.08] border border-[#2E2E2E] focus:border-[#3E3E45] focus:bg-white/[0.08] text-white placeholder:text-zinc-400 outline-none transition-colors", oxanium.className)}
                 />
               </div>
             </div>
           </div>
 
-          {/* Share Button - Fixed at bottom */}
+          {/* Share Button */}
           <div className="p-4 mt-auto">
             {shareError && (
               <p className="text-red-500 text-sm mb-2 text-center">{shareError}</p>
@@ -388,11 +392,13 @@ const NewPostPage = () => {
             <button
               onClick={handleShare}
               disabled={!selectedSpot || !trick.trim() || isSharing}
-              className={`w-full h-12 rounded-full font-medium transition-colors relative ${
+              className={cn(
+                "w-full h-12 rounded-full font-medium transition-colors relative",
+                oxanium.className,
                 selectedSpot && trick.trim() && !isSharing
                   ? 'bg-[#a3ff12] hover:bg-[#92e610] text-black'
                   : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
-              }`}
+              )}
             >
               {isSharing ? (
                 <>

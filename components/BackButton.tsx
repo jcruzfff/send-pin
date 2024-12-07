@@ -9,10 +9,10 @@ export default function BackButton() {
   return (
     <button
       onClick={() => router.back()}
-      className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors p-2"
+      className="flex items-center gap-2 text-muted-foreground text-white hover:text-foreground transition-colors p-2"
     >
-      <ChevronLeft className="w-5 h-5" />
-      <span>Back</span>
+      <ChevronLeft className="w-5 h-5 text-white" />
+      <span className="text-white">Back</span>
     </button>
   );
 } 

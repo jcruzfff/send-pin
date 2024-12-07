@@ -111,9 +111,11 @@ export default function HomePage() {
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
             placeholder="Ask spots anything"
-            className="w-full pl-10 pr-12 py-3 rounded-full border border-zinc-800 
-                     bg-zinc-900/50 text-white placeholder:text-zinc-400
-                     focus:outline-none focus:ring-1 focus:ring-zinc-700"
+            className="w-full pl-10 pr-4 py-3 rounded-full 
+                                 bg-transparent border border-[#171717]
+                                 text-white text-sm placeholder:text-zinc-500
+                                 focus:outline-none focus:ring-1 focus:ring-white/20
+                                 focus:ring-inset"
           />
           <button className="absolute right-3 top-1/2 -translate-y-1/2">
             <Mic className="w-5 h-5 text-zinc-400" />

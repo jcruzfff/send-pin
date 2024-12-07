@@ -9,6 +9,13 @@ import { db } from '@/lib/firebase';
 import { SPOT_CATEGORIES } from "@/lib/constants";
 import { SpotDetail } from "@/components/spots/SpotDetail";
 import { ProfileView } from '@/components/profile/ProfileView';
+import { Oxanium } from 'next/font/google';
+import { cn } from '@/lib/utils';
+
+const oxanium = Oxanium({ 
+  subsets: ['latin'],
+  variable: '--font-oxanium',
+});
 
 interface RecentSpot {
   id: string;
@@ -85,12 +92,14 @@ export default function ProfileContent() {
       title: 'Favorites',
       subtitle: 'Search your favorite spots',
       href: '/favorites',
+      className: 'w-full flex items-center gap-4 p-4 bg-gradient-to-b from-[#1F1F1E] to-[#0E0E0E] hover:from-[#2F2F2E] hover:to-[#1E1E1E] transition-all cursor-pointer mt-3 first:mt-0 border border-[#171717] rounded-[20px]'
     },
     {
       id: 'let',
       title: 'Lets go back',
       subtitle: 'We gotta go back to this spot',
-      href: '/let'
+      href: '/let',
+      className: 'w-full flex items-center gap-4 p-4 bg-gradient-to-b from-[#1F1F1E] to-[#0E0E0E] hover:from-[#2F2F2E] hover:to-[#1E1E1E] transition-all cursor-pointer mt-3 first:mt-0 border border-[#171717] rounded-[20px]'
     }
   ];
 
@@ -361,7 +370,7 @@ export default function ProfileContent() {
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
-              <h2 className="text-sm font-medium flex-1 text-center mr-5">
+              <h2 className={cn("text-sm font-medium flex-1 text-center mr-5", oxanium.className)}>
                 {spotDetailView.isActive 
                   ? spotDetailView.spot?.title 
                   : SPOT_CATEGORIES.find(cat => cat.id === categoryView.categoryId)?.label}
@@ -373,10 +382,11 @@ export default function ProfileContent() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`
-                    relative text-sm font-medium flex-1
-                    ${activeTab === tab.id ? 'text-white' : 'text-zinc-500'}
-                  `}
+                  className={cn(
+                    "relative text-sm font-medium flex-1",
+                    oxanium.className,
+                    activeTab === tab.id ? 'text-white' : 'text-zinc-500'
+                  )}
                 >
                   {tab.label}
                   {activeTab === tab.id && (
@@ -400,7 +410,7 @@ export default function ProfileContent() {
             <div className="flex flex-col h-full">
               {/* Recently Saved Section - Adjusted for viewport */}
               <div className="mt-[3vh]">
-                <h2 className="text-lg font-medium mb-[2vh]">Recent Saved</h2>
+                <h2 className={cn("text-lg font-medium mb-[2vh] text-white", oxanium.className)}>Recent Saved</h2>
                 <div className="overflow-x-auto hide-scrollbar">
                   <div className="flex gap-4 pb-[2vh] min-w-max">
                     {loading ? (
@@ -416,8 +426,7 @@ export default function ProfileContent() {
                         <Link
                           key={spot.id}
                           href={`/spots/${spot.id}`}
-                          className="flex-none w-[min(320px,80vw)] h-[min(320px,80vw)] 
-                                   rounded-lg overflow-hidden relative group"
+                          className="flex-none w-[min(320px,80vw)] h-[min(320px,80vw)] rounded-lg overflow-hidden relative group"
                         >
                           {spot.imageUrl ? (
                             <>
@@ -426,9 +435,8 @@ export default function ProfileContent() {
                                 alt={spot.title}
                                 className="w-full h-full object-cover"
                               />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent 
-                                             flex items-end p-4">
-                                <p className="text-white text-sm font-medium">
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-4">
+                                <p className={cn("text-white text-sm font-medium", oxanium.className)}>
                                   {spot.title}
                                 </p>
                               </div>
@@ -436,7 +444,7 @@ export default function ProfileContent() {
                           ) : (
                             <div className="w-full h-full bg-zinc-900 flex flex-col items-center justify-center gap-2">
                               <MapPin className="w-8 h-8 text-zinc-700" />
-                              <p className="text-sm text-zinc-500">{spot.title}</p>
+                              <p className={cn("text-sm text-zinc-500", oxanium.className)}>{spot.title}</p>
                             </div>
                           )}
                         </Link>
@@ -456,14 +464,14 @@ export default function ProfileContent() {
                   <Link
                     key={item.id}
                     href={item.href}
-                    className="flex items-center p-4 bg-card hover:bg-accent rounded-lg transition-colors"
+                    className="w-full flex items-center gap-4 p-4 bg-gradient-to-b from-[#1F1F1E] to-[#0E0E0E] hover:from-[#2F2F2E] hover:to-[#1E1E1E] transition-all cursor-pointer mt-3 first:mt-0 border border-[#171717] rounded-[20px]"
                   >
                     <div className="flex-1">
-                      <h3 className="text-[14px] font-medium text-foreground">{item.title}</h3>
-                      <p className="text-sm text-muted-foreground">{item.subtitle}</p>
+                      <h3 className={cn("text-[16px] font-medium text-white", oxanium.className)}>{item.title}</h3>
+                      <p className="text-sm text-zinc-400">{item.subtitle}</p>
                     </div>
 
-                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                    <ChevronRight className="w-5 h-5 text-zinc-400" />
                   </Link>
                 ))}
               </div>
@@ -493,10 +501,11 @@ export default function ProfileContent() {
                       placeholder={`Search ${SPOT_CATEGORIES.find(cat => cat.id === categoryView.categoryId)?.label.toLowerCase() || 'spots'}...`}
                       value={searchQuery}
                       onChange={(e) => handleSearch(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 rounded-full border-none bg-zinc-900 
-                               text-white text-sm placeholder:text-zinc-500
-                               focus:outline-none focus:ring-1 focus:ring-white/20
-                               focus:ring-inset"
+                      className="w-full pl-10 pr-4 py-3 rounded-full 
+                                 bg-transparent border border-[#171717]
+                                 text-white text-sm placeholder:text-zinc-500
+                                 focus:outline-none focus:ring-1 focus:ring-white/20
+                                 focus:ring-inset"
                     />
                   </div>
 
@@ -539,7 +548,7 @@ export default function ProfileContent() {
                                 </div>
 
                                 <div className="flex-1 text-left min-w-0">
-                                  <h3 className="font-medium text-white truncate">{spot.title}</h3>
+                                  <h3 className={cn("font-medium text-white truncate", oxanium.className)}>{spot.title}</h3>
                                   <div className="space-y-0.5">
                                     <p className="text-sm text-zinc-400">
                                       {SPOT_CATEGORIES.find(cat => cat.id === spot.spotType)?.label || 'Uncategorized'}
@@ -595,7 +604,7 @@ export default function ProfileContent() {
                           </div>
 
                           <div className="flex-1 text-left min-w-0">
-                            <h3 className="font-medium text-white truncate">{spot.title}</h3>
+                            <h3 className={cn("font-medium text-white truncate", oxanium.className)}>{spot.title}</h3>
                             <div className="space-y-0.5">
                               <p className="text-sm text-zinc-400">
                                 {SPOT_CATEGORIES.find(cat => cat.id === spot.spotType)?.label || 'Uncategorized'}
@@ -693,7 +702,7 @@ export default function ProfileContent() {
                           </div>
                           
                           <div className="flex-1 text-left">
-                            <h3 className="font-medium text-white">{category.label}</h3>
+                            <h3 className={cn("font-medium text-white", oxanium.className)}>{category.label}</h3>
                             <p className="text-sm text-zinc-400">
                               {categorySpots.length} {categorySpots.length === 1 ? 'spot' : 'spots'}
                             </p>

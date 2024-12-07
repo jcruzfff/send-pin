@@ -12,7 +12,7 @@ interface SpotRequirementsProps {
       lng: number;
     };
     title: string;
-    spotType: string;
+    spotType?: string;
     imageUrl?: string;
   };
   onBack: () => void;
@@ -21,7 +21,7 @@ interface SpotRequirementsProps {
 
 const DIFFICULTY_OPTIONS = [
   { value: 'beginner', label: 'Beginner' },
-  { value: 'flow', label: 'Flow' },
+  { value: 'flow', label: 'Flow' }, 
   { value: 'amateur', label: 'Amateur' },
   { value: 'pro', label: 'Pro' }
 ];
@@ -121,11 +121,11 @@ export function SpotRequirements({ spot, onBack, onSubmit }: SpotRequirementsPro
       <div className="flex items-center h-[65px] px-[18px] border-b border-zinc-800">
         <button
           onClick={onBack}
-          className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors"
+          className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors text-white"
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
-        <h2 className="ml-2 text-lg font-semibold">Spot Requirements</h2>
+        <h2 className="ml-2 text-lg font-semibold text-white font-[Oxanium]">Spot Requirements</h2>
       </div>
 
       <div className="flex flex-col h-[calc(100vh-65px)]">
@@ -140,7 +140,7 @@ export function SpotRequirements({ spot, onBack, onSubmit }: SpotRequirementsPro
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-zinc-700">
+              <div className="w-full h-full flex items-center justify-center text-white font-[Oxanium]">
                 No image
               </div>
             )}
@@ -148,9 +148,9 @@ export function SpotRequirements({ spot, onBack, onSubmit }: SpotRequirementsPro
 
           {/* Spot Details */}
           <div className="flex-1">
-            <h3 className="text-xl font-semibold mb-1">{spot.title}</h3>
-            <p className="text-zinc-400 text-sm mb-1">{locationString}</p>
-            <p className="text-zinc-400 text-sm capitalize">{spot.spotType}</p>
+            <h3 className="text-xl font-semibold mb-1 text-white font-[Oxanium]">{spot.title}</h3>
+            <p className="text-zinc-400 text-sm mb-1 font-[Oxanium]">{locationString}</p>
+            <p className="text-zinc-400 text-sm capitalize font-[Oxanium]">{spot.spotType || 'Uncategorized'}</p>
           </div>
         </div>
 
@@ -158,57 +158,57 @@ export function SpotRequirements({ spot, onBack, onSubmit }: SpotRequirementsPro
         <div className="flex-1 px-[18px] overflow-y-auto">
           {/* Difficulty Dropdown */}
           <div className="mb-6">
-            <label className="text-lg font-semibold mb-3 block">
+            <label className="text-lg font-semibold mb-3 block text-white font-[Oxanium]">
               Difficulty
             </label>
             <div className="relative">
               <select
                 value={difficulty}
                 onChange={(e) => setDifficulty(e.target.value)}
-                className="w-full px-4 py-3 rounded-full bg-transparent border border-zinc-800
+                className={`w-full px-4 py-3 rounded-full bg-transparent border border-zinc-800
                           appearance-none text-base focus:outline-none focus:border-zinc-700
-                          pr-10"
+                          pr-10 font-[Oxanium] ${difficulty === '' ? 'text-zinc-400' : 'text-white'}`}
               >
-                <option value="">Select the difficulty of the spot</option>
+                <option value="" className="bg-black">Select the difficulty of the spot</option>
                 {DIFFICULTY_OPTIONS.map(option => (
-                  <option key={option.value} value={option.value}>
+                  <option key={option.value} value={option.value} className="bg-black text-white">
                     {option.label}
                   </option>
                 ))}
               </select>
-              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 pointer-events-none" />
+              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white pointer-events-none" />
             </div>
           </div>
 
           {/* Material Dropdown */}
           <div className="mb-6">
-            <label className="text-lg font-semibold mb-3 block">
+            <label className="text-lg font-semibold mb-3 block text-white font-[Oxanium]">
               Material
             </label>
             <div className="relative">
               <select
                 value={material}
                 onChange={(e) => setMaterial(e.target.value)}
-                className="w-full px-4 py-3 rounded-full bg-transparent border border-zinc-800
+                className={`w-full px-4 py-3 rounded-full bg-transparent border border-zinc-800
                           appearance-none text-base focus:outline-none focus:border-zinc-700
-                          pr-10"
+                          pr-10 font-[Oxanium] ${material === '' ? 'text-zinc-400' : 'text-white'}`}
               >
-                <option value="">Choose the material of the spot</option>
+                <option value="" className="bg-black">Choose the material of the spot</option>
                 {MATERIAL_OPTIONS.map(option => (
-                  <option key={option.value} value={option.value}>
+                  <option key={option.value} value={option.value} className="bg-black text-white">
                     {option.label}
                   </option>
                 ))}
               </select>
-              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 pointer-events-none" />
+              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white pointer-events-none" />
             </div>
           </div>
 
           {/* Description Field */}
           <div className="mb-6">
-            <label className="text-lg font-semibold mb-3 block">
+            <label className="text-lg font-semibold mb-3 block text-white font-[Oxanium]">
               Description
-              <span className="text-zinc-400 text-sm font-normal ml-2">
+              <span className="text-white text-sm font-normal ml-2 font-[Oxanium]">
                 ({description.length}/15 min characters)
               </span>
             </label>
@@ -218,17 +218,17 @@ export function SpotRequirements({ spot, onBack, onSubmit }: SpotRequirementsPro
               placeholder="Describe the spot in detail"
               className="w-full px-4 py-3 rounded-lg bg-transparent border border-zinc-800
                         text-base focus:outline-none focus:border-zinc-700
-                        min-h-[120px] resize-none"
+                        min-h-[120px] resize-none text-white font-[Oxanium]"
             />
           </div>
         </div>
 
         {/* Submit Button */}
-        <div className="p-[18px] border-t border-zinc-800">
+        <div className="p-[18px]">
           <button
             onClick={handleSubmit}
             disabled={!isValid}
-            className={`w-full py-3 rounded-full font-medium text-base ${
+            className={`w-full py-3 rounded-full font-medium text-base font-[Oxanium] ${
               isValid
                 ? 'bg-[#a3ff12] text-black hover:bg-[#92e610]'
                 : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'

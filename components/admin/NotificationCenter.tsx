@@ -4,16 +4,7 @@ import { useState, useEffect } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { collection, query, orderBy, getDocs, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { MarkerData } from '@/types/map';
-
-interface SpotSubmission {
-  id: string;
-  spotId: string;
-  userId: string;
-  spotData: MarkerData;
-  status: 'pending' | 'approved' | 'rejected';
-  submittedAt: number;
-}
+import type { SpotSubmission } from '@/types/spot-submission';
 
 interface NotificationCenterProps {
   onClose: () => void;
@@ -148,21 +139,21 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
       <div className="flex items-center h-[65px] px-[18px] border-b border-zinc-800">
         <button
           onClick={onClose}
-          className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors"
+          className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors text-white"
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
-        <h2 className="ml-2 text-lg font-semibold">Spot Submissions</h2>
+        <h2 className="ml-2 text-lg font-semibold text-white font-[Oxanium]">Spot Submissions</h2>
       </div>
 
       {/* Content */}
       <div className="p-[18px]">
         {loading ? (
-          <div className="text-center py-8 text-zinc-400">
+          <div className="text-center py-8 text-white font-[Oxanium]">
             Loading submissions...
           </div>
         ) : submissions.filter(sub => sub.status === 'pending').length === 0 ? (
-          <div className="text-center py-8 text-zinc-400">
+          <div className="text-center py-8 text-white font-[Oxanium]">
             No pending submissions
           </div>
         ) : (
@@ -172,7 +163,7 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
               .map((submission) => (
                 <div
                   key={submission.id}
-                  className="bg-zinc-900 rounded-lg overflow-hidden"
+                  className="bg-gradient-to-b from-[#1F1F1E] to-[#0E0E0E] border border-[#171717] rounded-[20px] overflow-hidden"
                 >
                   {/* Spot Preview */}
                   <div className="p-4">
@@ -185,17 +176,17 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-zinc-700">
+                          <div className="w-full h-full flex items-center justify-center text-white font-[Oxanium]">
                             No image
                           </div>
                         )}
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-medium">{submission.spotData.title}</h3>
-                        <p className="text-sm text-zinc-400">
-                          {submission.spotData.spotType || 'Uncategorized'}
+                        <h3 className="font-medium text-white font-[Oxanium]">{submission.spotData.title}</h3>
+                        <p className="text-sm text-white font-[Oxanium]">
+                          {(submission.spotData.spotType || 'Uncategorized').charAt(0).toUpperCase() + (submission.spotData.spotType || 'Uncategorized').slice(1)}
                         </p>
-                        <p className="text-xs text-zinc-500 mt-1">
+                        <p className="text-xs text-zinc-400 mt-1 font-[Oxanium]">
                           Submitted {new Date(submission.submittedAt).toLocaleDateString()}
                         </p>
                       </div>
@@ -207,7 +198,7 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
                     <button
                       onClick={() => handleApprove(submission)}
                       disabled={!!processing}
-                      className="flex-1 p-3 flex items-center justify-center gap-2 hover:bg-white/5 transition-colors text-green-400"
+                      className="flex-1 p-3 flex items-center justify-center gap-2 hover:bg-white/5 transition-colors text-green-400 font-[Oxanium]"
                     >
                       Approve
                     </button>
@@ -215,7 +206,7 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
                     <button
                       onClick={() => handleReject(submission)}
                       disabled={!!processing}
-                      className="flex-1 p-3 flex items-center justify-center gap-2 hover:bg-white/5 transition-colors text-red-400"
+                      className="flex-1 p-3 flex items-center justify-center gap-2 hover:bg-white/5 transition-colors text-red-400 font-[Oxanium]"
                     >
                       Reject
                     </button>
