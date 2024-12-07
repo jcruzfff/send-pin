@@ -4,13 +4,15 @@ import { useRef, useState, useEffect } from "react";
 import { ImageIcon } from "lucide-react";
 import { storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { cn } from "@/lib/utils";
 
 interface ImageUploadProps {
   onImageUploaded: (url: string) => void;
   initialImage?: string;
+  className?: string;
 }
 
-export function ImageUpload({ onImageUploaded, initialImage }: ImageUploadProps) {
+export function ImageUpload({ onImageUploaded, initialImage, className }: ImageUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | undefined>(initialImage);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -64,8 +66,10 @@ export function ImageUpload({ onImageUploaded, initialImage }: ImageUploadProps)
   return (
     <div 
       onClick={() => fileInputRef.current?.click()}
-      className="relative w-24 h-24 bg-zinc-600/50 rounded-2xl overflow-hidden cursor-pointer 
-                 hover:opacity-90 transition-opacity"
+      className={cn(
+        "relative w-24 h-24 bg-zinc-600/50 rounded-2xl overflow-hidden cursor-pointer hover:opacity-90 transition-opacity",
+        className
+      )}
     >
       {previewUrl ? (
         <img 

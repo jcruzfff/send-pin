@@ -6,7 +6,7 @@ import { Globe, List, Loader2, Image as ImageIcon, Search, ChevronRight, X, Chev
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useLoadScript } from '@react-google-maps/api';
-import type { Libraries } from '@react-google-maps/api';
+import type { LoadScriptProps } from '@react-google-maps/api';
 import { ImageUpload } from "@/components/ui/image-upload";
 import { WeatherInfo } from "@/components/ui/weather-info";
 import { db, storage } from '@/lib/firebase';
@@ -18,18 +18,65 @@ import { useRouter } from "next/navigation";
 import { OptimizedImage } from "@/components/ui/optimized-image";
 import Link from 'next/link';
 
-const StandaloneSearchBox = dynamic(
-  () => import('@react-google-maps/api').then(mod => mod.StandaloneSearchBox),
+// Define the libraries type
+type Libraries = ("places" | "geometry" | "drawing" | "visualization")[];
+
+// Create a mutable array of libraries
+const libraries: Libraries = ["places"];
+
+// Only keep the GoogleMap dynamic import
+const GoogleMap = dynamic(
+  () => import('@react-google-maps/api').then(mod => {
+    const { GoogleMap } = mod;
+    return GoogleMap;
+  }),
   { ssr: false }
 );
 
-const GoogleMap = dynamic(
-  () => import('@react-google-maps/api').then(mod => mod.GoogleMap),
-  { ssr: false }
+// Remove any StandaloneSearchBox related code and replace with our custom search input
+const SearchInput = ({ 
+  value, 
+  onChange, 
+  placeholder 
+}: { 
+  value: string; 
+  onChange: (value: string) => void; 
+  placeholder: string;
+}) => (
+  <div className="flex-1 relative">
+    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
+    <input
+      type="text"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="w-full px-4 py-3 pl-10 rounded-full border border-zinc-800 bg-black 
+                text-white text-sm placeholder:text-zinc-500
+                focus:outline-none focus:ring-1 focus:ring-white/20"
+    />
+  </div>
 );
+
+// Add proper type declaration for navigator.geolocation
+declare global {
+  interface Navigator {
+    readonly geolocation: Geolocation;
+  }
+}
+
+// Add the type for the map props
+interface MapProps {
+  center: google.maps.LatLngLiteral;
+  zoom: number;
+  options?: google.maps.MapOptions;
+  onClick?: (e: google.maps.MapMouseEvent) => void;
+  onLoad?: (map: google.maps.Map) => void;
+  mapContainerClassName?: string;
+}
 
 interface MarkerData {
-  position: google.maps.LatLngLiteral; 
+  [key: string]: any;  // Add index signature
+  position: google.maps.LatLngLiteral;
   title: string;
   id: string;
   spotType?: string;
@@ -39,8 +86,18 @@ interface MarkerData {
   isGlobal?: boolean;
   status?: 'draft' | 'submitted' | 'published';
   createdAt: number;
-  updatedAt: number;
+  updatedAt?: number;
 }
+
+// When creating a new marker, spread the data
+const createNewMarker = (data: Partial<MarkerData>): MarkerData => ({
+  id: Date.now().toString(),
+  createdAt: Date.now(),
+  updatedAt: Date.now(),
+  status: 'draft',
+  isGlobal: false,
+  ...data
+} as MarkerData);
 
 // Add these types and constants outside the component
 type SpotState = 'new' | 'editing' | 'locked';
@@ -63,9 +120,6 @@ const spotCategories: SpotCategory[] = [
   { id: 'parks', label: 'Skateparks' },
 ];
 
-const libraries: ("places" | "marker")[] = ["places", "marker"];
-
-// Add this helper function at the top of the file
 const calculateDistanceInMeters = (
   point1: google.maps.LatLngLiteral,
   point2: google.maps.LatLngLiteral
@@ -199,20 +253,16 @@ const MapComponent = () => {
   const [showNearbyOnly, setShowNearbyOnly] = useState(false);
 
   // 2. Context hooks
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
 
   // 3. Ref hooks
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
-  const markersMapRef = useRef<Map<string, google.maps.marker.AdvancedMarkerElement>>(new Map());
+  const markersMapRef = useRef<Map<string, google.maps.Marker | google.maps.marker.AdvancedMarkerElement>>(new Map());
 
   // 4. Load script hook
   const { isLoaded } = useLoadScript({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
-    libraries,
-    mapIds: ['de621d29fd84f79d'],
-    version: "weekly",
-    language: 'en',
-    region: 'US'
+    libraries
   });
 
   // 5. Memo hooks
@@ -286,17 +336,32 @@ const MapComponent = () => {
       // Update markers on the map
       if (mapInstanceRef.current) {
         // Clear existing markers
-        markersMapRef.current.forEach(marker => marker.map = null);
+        markersMapRef.current.forEach(marker => {
+          if (marker instanceof google.maps.Marker) {
+            marker.setMap(null);
+          } else {
+            marker.map = null;
+          }
+        });
         markersMapRef.current.clear();
 
         // Add new markers
         filteredSpots.forEach(markerData => {
-          const marker = new google.maps.marker.AdvancedMarkerElement({
-            map: mapInstanceRef.current,
+          const marker = new google.maps.Marker({
             position: markerData.position,
             title: markerData.title,
-            content: createMarkerElement(markerData)
+            icon: {
+              url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="12" cy="12" r="8" fill="${markerData.isGlobal ? '#a3ff12' : '#ffffff'}" stroke="white" stroke-width="2"/>
+                </svg>
+              `),
+              scaledSize: new google.maps.Size(24, 24),
+              anchor: new google.maps.Point(12, 12)
+            }
           });
+
+          marker.setMap(mapInstanceRef.current);
 
           marker.addListener('click', () => {
             setSelectedMarker(markerData);
@@ -409,7 +474,13 @@ const MapComponent = () => {
     if (!mapInstanceRef.current) return;
 
     // Clear existing markers
-    markersMapRef.current.forEach(marker => marker.map = null);
+    markersMapRef.current.forEach(marker => {
+      if (marker instanceof google.maps.Marker) {
+        marker.setMap(null);
+      } else {
+        marker.map = null;
+      }
+    });
     markersMapRef.current.clear();
 
     markers.forEach(markerData => {
@@ -528,24 +599,18 @@ const MapComponent = () => {
     }
   }, [markers]);
 
-  const handleMapClick = (e: google.maps.MapMouseEvent) => {
-    if (!e.placeId) {
-      if (e.latLng && user) {
-        const newMarker: MarkerData = {
-          position: e.latLng.toJSON(),
-          title: 'New Location',
-          id: Date.now().toString(),
-          createdBy: user.uid,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-          status: 'draft',
-          isGlobal: false
-        };
-        setMarkers(prev => [...prev, newMarker]);
-        setSelectedMarker(newMarker);
-        setEditingTitle('New Location');
-        setSpotState('new');
-      }
+  const handleMapClick = (e: google.maps.MapMouseEvent & { placeId?: string }) => {
+    if (!e.placeId && e.latLng && user) {
+      const newMarker = createNewMarker({
+        position: e.latLng.toJSON(),
+        title: 'New Location',
+        createdBy: user.uid
+      });
+      
+      setMarkers(prev => [...prev, newMarker]);
+      setSelectedMarker(newMarker);
+      setEditingTitle('New Location');
+      setSpotState('new');
     }
   };
 
@@ -586,17 +651,37 @@ const MapComponent = () => {
             // Remove old marker
             const oldMarker = markersMapRef.current.get(selectedMarker.id);
             if (oldMarker) {
-              oldMarker.map = null;
+              removeMarker(oldMarker);
               markersMapRef.current.delete(selectedMarker.id);
             }
 
             // Add new marker
-            const newMarker = new google.maps.marker.AdvancedMarkerElement({
-              map: mapInstanceRef.current,
-              position: updatedSpotData.position,
-              title: updatedSpotData.title,
-              content: createMarkerElement(updatedSpotData)
-            });
+            let newMarker;
+            if (google.maps.marker?.AdvancedMarkerElement) {
+              // Use advanced marker if available
+              newMarker = new google.maps.marker.AdvancedMarkerElement({
+                map: mapInstanceRef.current,
+                position: updatedSpotData.position,
+                title: updatedSpotData.title,
+                content: createMarkerElement(updatedSpotData)
+              });
+            } else {
+              // Fallback to regular marker
+              newMarker = new google.maps.Marker({
+                map: mapInstanceRef.current,
+                position: updatedSpotData.position,
+                title: updatedSpotData.title,
+                icon: {
+                  url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="12" cy="12" r="8" fill="${updatedSpotData.isGlobal ? '#a3ff12' : '#ffffff'}" stroke="white" stroke-width="2"/>
+                    </svg>
+                  `),
+                  scaledSize: new google.maps.Size(24, 24),
+                  anchor: new google.maps.Point(12, 12)
+                }
+              });
+            }
 
             newMarker.addListener('click', () => {
               setSelectedMarker(updatedSpotData);
@@ -619,7 +704,21 @@ const MapComponent = () => {
           // Update marker on the map
           const existingMarker = markersMapRef.current.get(selectedMarker.id);
           if (existingMarker && mapInstanceRef.current) {
-            existingMarker.content = createMarkerElement(spotData);
+            if (existingMarker instanceof google.maps.Marker) {
+              // Update standard marker properties
+              existingMarker.setIcon({
+                url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="12" r="8" fill="${spotData.isGlobal ? '#a3ff12' : '#ffffff'}" stroke="white" stroke-width="2"/>
+                  </svg>
+                `),
+                scaledSize: new google.maps.Size(24, 24),
+                anchor: new google.maps.Point(12, 12)
+              });
+            } else {
+              // Update advanced marker properties
+              existingMarker.content = createMarkerElement(spotData);
+            }
           }
         }
 
@@ -665,7 +764,7 @@ const MapComponent = () => {
     }
   };
 
-  const handleSearch = (query: string) => {
+  const handleSearch = useCallback((query: string) => {
     setSearchQuery(query);
     
     if (!query.trim()) {
@@ -679,7 +778,7 @@ const MapComponent = () => {
     const searchTerms = query.toLowerCase().split(' ');
     
     // First filter by active category if one is selected
-    let baseMarkers = activeCategory 
+    const baseMarkers = activeCategory 
       ? markers.filter(marker => marker.spotType === activeCategory)
       : markers;
     
@@ -720,7 +819,7 @@ const MapComponent = () => {
       // Clear search results in list view
       setSearchResults([]);
     }
-  };
+  }, [activeCategory, isMapView, markers, userLocation]);
 
   const handleSearchResultClick = (spotId: string) => {
     const selectedSpot = markers.find(marker => marker.id === spotId);
@@ -737,7 +836,7 @@ const MapComponent = () => {
   };
 
   const getUserLocation = () => {
-    if (!navigator.geolocation) {
+    if (!("geolocation" in navigator)) {
       console.log('Geolocation is not supported by your browser');
       return;
     }
@@ -914,12 +1013,21 @@ const MapComponent = () => {
     }
   };
 
+  // Helper function to safely remove a marker
+  const removeMarker = (marker: google.maps.Marker | google.maps.marker.AdvancedMarkerElement) => {
+    if (marker instanceof google.maps.Marker) {
+      marker.setMap(null);
+    } else {
+      marker.map = null;
+    }
+  };
+
   return (
     <div className="fixed inset-x-0 bottom-16 top-0 flex flex-col">
       {/* Search and toggle - Always visible */}
       <div className="flex-none bg-black px-4 py-3 z-50">
         <div className="max-w-2xl mx-auto flex items-center gap-4">
-          {/* Search Box */}
+          {/* Search Input */}
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
             <input
@@ -930,11 +1038,11 @@ const MapComponent = () => {
                 ? `Search ${SPOT_CATEGORIES.find(cat => cat.id === activeCategory)?.label.toLowerCase() || 'spots'}` 
                 : "Search for a spot"}
               className="w-full px-4 py-3 pl-10 rounded-full border border-zinc-800 bg-black 
-                       text-white text-sm placeholder:text-zinc-500
-                       focus:outline-none focus:ring-1 focus:ring-white/20"
+                        text-white text-sm placeholder:text-zinc-500
+                        focus:outline-none focus:ring-1 focus:ring-white/20"
             />
             
-            {/* Show dropdown only in map view */}
+            {/* Search Results Dropdown */}
             {isMapView && isSearching && searchResults.length > 0 && (
               <>
                 <div 
@@ -1030,9 +1138,12 @@ const MapComponent = () => {
           {/* Map */}
           <div className="absolute inset-0">
             <GoogleMap
-              options={mapOptions}
               center={center}
-              zoom={userLocation ? 14 : 11} // Closer zoom when we have user location
+              zoom={14}
+              options={{
+                ...mapOptions,
+                mapId: 'de621d29fd84f79d',
+              }}
               onClick={handleMapClick}
               onLoad={handleMapLoad}
               mapContainerClassName="w-full h-full"
@@ -1153,7 +1264,7 @@ const MapComponent = () => {
                             )
                           );
                         }}
-                        initialImage={selectedMarker.imageUrl}
+                        initialImage={selectedMarker.imageUrl || undefined}
                         className="w-24 h-24 rounded-2xl bg-zinc-800/50"
                       />
                     )}

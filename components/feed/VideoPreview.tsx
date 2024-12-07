@@ -30,14 +30,12 @@ export function VideoPreview({ videoBlob, onBack, onShare }: VideoPreviewProps) 
 
   useEffect(() => {
     if (videoRef.current) {
-      videoRef.current.src = URL.createObjectURL(videoBlob);
+      const video = videoRef.current;
+      video.src = URL.createObjectURL(videoBlob);
+      return () => {
+        video.src = '';
+      };
     }
-
-    return () => {
-      if (videoRef.current?.src) {
-        URL.revokeObjectURL(videoRef.current.src);
-      }
-    };
   }, [videoBlob]);
 
   return (
