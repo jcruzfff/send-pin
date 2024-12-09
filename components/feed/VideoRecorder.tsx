@@ -24,8 +24,9 @@ export function VideoRecorder({ onClose, onVideoRecorded }: VideoRecorderProps) 
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const [isRecording, setIsRecording] = useState(false);
-  const [recordingProgress, setRecordingProgress] = useState(0);
+  const [recordingTime, setRecordingTime] = useState(0);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
   const progressIntervalRef = useRef<NodeJS.Timeout>();
 
   const startCamera = useCallback(async () => {
@@ -51,6 +52,22 @@ export function VideoRecorder({ onClose, onVideoRecorded }: VideoRecorderProps) 
       if (videoRef.current) {
         videoRef.current.style.backgroundColor = '#000';
       }
+    }
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    setIsRecording(false);
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+    }
+    setRecordingTime(0);
+
+    if (chunksRef.current.length > 0) {
+      const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+      setPreviewUrl(url);
+      setShowPreview(true);
+      chunksRef.current = [];
     }
   }, []);
 
@@ -90,22 +107,12 @@ export function VideoRecorder({ onClose, onVideoRecorded }: VideoRecorderProps) 
     const maxDuration = 60000;
     progressIntervalRef.current = setInterval(() => {
       const progress = Math.min((Date.now() - startTime) / maxDuration, 1);
-      setRecordingProgress(progress);
+      setRecordingTime(progress);
       if (progress >= 1) {
         stopRecording();
       }
     }, 100);
-  }, []);
-
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
-      }
-    }
-  }, [isRecording]);
+  }, [stopRecording]);
 
   const acceptRecording = useCallback(() => {
     if (chunksRef.current.length > 0) {
@@ -144,7 +151,7 @@ export function VideoRecorder({ onClose, onVideoRecorded }: VideoRecorderProps) 
       setPreviewUrl(null);
     }
     
-    setRecordingProgress(0);
+    setRecordingTime(0);
     
     chunksRef.current = [];
     
@@ -201,8 +208,29 @@ export function VideoRecorder({ onClose, onVideoRecorded }: VideoRecorderProps) 
     }
   }, []);
 
+  const handleStopRecording = useCallback(() => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      stopRecording();
+    }
+  }, [stopRecording]);
+
+  const handleCancelRecording = useCallback(() => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      stopRecording();
+      setShowPreview(false);
+    }
+  }, [stopRecording]);
+
   useEffect(() => {
-    startCamera();
+    if (!isRecording) {
+      startCamera();
+    }
+    if (previewUrl) {
+      // Handle preview URL changes
+    }
+
     return () => {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
@@ -214,7 +242,7 @@ export function VideoRecorder({ onClose, onVideoRecorded }: VideoRecorderProps) 
         URL.revokeObjectURL(previewUrl);
       }
     };
-  }, []);
+  }, [isRecording, startCamera, previewUrl]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -252,7 +280,7 @@ export function VideoRecorder({ onClose, onVideoRecorded }: VideoRecorderProps) 
             <div className="h-1 bg-zinc-800/80 rounded-full overflow-hidden">
               <div 
                 className="h-full bg-red-500 transition-all duration-100"
-                style={{ width: `${recordingProgress * 100}%` }}
+                style={{ width: `${recordingTime * 100}%` }}
               />
             </div>
           </div>
@@ -308,8 +336,8 @@ export function VideoRecorder({ onClose, onVideoRecorded }: VideoRecorderProps) 
             <button
               className="w-20 h-20 rounded-full flex items-center justify-center bg-zinc-900/50 border-4 border-white"
               onPointerDown={startRecording}
-              onPointerUp={stopRecording}
-              onPointerLeave={stopRecording}
+              onPointerUp={handleStopRecording}
+              onPointerLeave={handleStopRecording}
             >
               <div className={`w-16 h-16 rounded-full transition-colors ${
                 isRecording ? 'bg-red-500' : 'bg-transparent'

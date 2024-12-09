@@ -321,11 +321,11 @@ export function ProfileView({ isCurrentUser = true }: ProfileViewProps): ReactEl
             </h2>
             <div className="flex gap-4 text-[15px]">
               <div className="flex gap-1">
-                <span className={cn("text-white", oxanium.className)}>1230</span>
+                <span className={cn("text-white", oxanium.className)}>0</span>
                 <span className="text-zinc-400">Followers</span>
               </div>
               <div className="flex gap-1">
-                <span className={cn("text-white", oxanium.className)}>460</span>
+                <span className={cn("text-white", oxanium.className)}>0</span>
                 <span className="text-zinc-400">Following</span>
               </div>
             </div>
@@ -347,13 +347,13 @@ export function ProfileView({ isCurrentUser = true }: ProfileViewProps): ReactEl
 
       {/* Content Area */}
       <div className="flex-1 overflow-y-auto">
-        <div className="grid grid-cols-3 gap-0.5 px-[2px]">
+        <div className="grid grid-cols-3 gap-2 px-[2px]">
           {loading ? (
             // Videos loading state
             Array(6).fill(0).map((_, i) => (
               <div
                 key={`loading-${i}`}
-                className="aspect-square bg-zinc-900 animate-pulse"
+                className="aspect-square bg-zinc-900 animate-pulse rounded-lg"
               />
             ))
           ) : userVideos.length > 0 ? (

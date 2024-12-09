@@ -37,7 +37,7 @@ const DrawerContent = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>
 >(({ className, children, ...props }, ref) => {
-  const contentRef = React.useRef<HTMLDivElement>(null);
+  const contentRef = React.useRef<HTMLDivElement | null>(null) as React.MutableRefObject<HTMLDivElement | null>;
 
   React.useEffect(() => {
     const content = contentRef.current;
@@ -64,8 +64,8 @@ const DrawerContent = React.forwardRef<
         ref={(node) => {
           // Handle both refs
           if (typeof ref === 'function') ref(node);
-          else if (ref) ref.current = node;
-          if (contentRef) contentRef.current = node;
+          else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
+          contentRef.current = node;
         }}
         className={cn(
           "fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-[10px] border bg-background",

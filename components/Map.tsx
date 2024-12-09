@@ -17,6 +17,17 @@ import { SPOT_CATEGORIES } from "@/lib/constants";
 import { useRouter } from "next/navigation";
 import { OptimizedImage } from "@/components/ui/optimized-image";
 import Link from 'next/link';
+import { useGoogleMaps } from "@/hooks/use-google-maps";
+import { OnboardingOverlay } from '@/components/ui/onboarding-overlay';
+
+// eslint-disable-next-line @typescript-eslint/no-namespace
+declare global {
+  namespace google.maps {
+    interface MarkerLibrary {
+      AdvancedMarkerElement: typeof google.maps.marker.AdvancedMarkerElement;
+    }
+  }
+}
 
 // Define the libraries type
 type Libraries = ("places" | "geometry" | "drawing" | "visualization")[];
@@ -24,14 +35,47 @@ type Libraries = ("places" | "geometry" | "drawing" | "visualization")[];
 // Create a mutable array of libraries
 const libraries: Libraries = ["places"];
 
-// Only keep the GoogleMap dynamic import
-const GoogleMap = dynamic(
-  () => import('@react-google-maps/api').then(mod => {
-    const { GoogleMap } = mod;
-    return GoogleMap;
-  }),
-  { ssr: false }
+// Define the props type for the GoogleMap component
+interface GoogleMapComponentProps {
+  center: google.maps.LatLngLiteral;
+  zoom: number;
+  options?: google.maps.MapOptions;
+  onClick?: (e: google.maps.MapMouseEvent & { placeId?: string }) => void;
+  onLoad?: (map: google.maps.Map) => void;
+  mapContainerClassName?: string;
+  mapContainerStyle?: { [key: string]: string };
+}
+
+// Add this type declaration
+declare module '@react-google-maps/api' {
+  export const GoogleMap: React.ComponentType<GoogleMapComponentProps>;
+}
+
+// Create a dynamic version of the GoogleMap component
+const DynamicGoogleMap = dynamic<GoogleMapComponentProps>(
+  async () => {
+    const mod = await import('@react-google-maps/api');
+    return mod.GoogleMap;
+  },
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-full flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    ),
+  }
 );
+
+// Add the type for the map props
+interface MapProps {
+  center: google.maps.LatLngLiteral;
+  zoom: number;
+  options?: google.maps.MapOptions;
+  onClick?: (e: google.maps.MapMouseEvent & { placeId?: string }) => void;
+  onLoad?: (map: google.maps.Map) => void;
+  mapContainerClassName?: string;
+}
 
 // Remove any StandaloneSearchBox related code and replace with our custom search input
 const SearchInput = ({ 
@@ -62,16 +106,6 @@ declare global {
   interface Navigator {
     readonly geolocation: Geolocation;
   }
-}
-
-// Add the type for the map props
-interface MapProps {
-  center: google.maps.LatLngLiteral;
-  zoom: number;
-  options?: google.maps.MapOptions;
-  onClick?: (e: google.maps.MapMouseEvent) => void;
-  onLoad?: (map: google.maps.Map) => void;
-  mapContainerClassName?: string;
 }
 
 interface MarkerData {
@@ -125,14 +159,14 @@ const calculateDistanceInMeters = (
   point2: google.maps.LatLngLiteral
 ): number => {
   const R = 6371e3; // Earth's radius in meters
-  const φ1 = point1.lat * Math.PI / 180;
-  const φ2 = point2.lat * Math.PI / 180;
-  const Δφ = (point2.lat - point1.lat) * Math.PI / 180;
-  const Δλ = (point2.lng - point1.lng) * Math.PI / 180;
+  const lat1 = point1.lat * Math.PI / 180;
+  const lat2 = point2.lat * Math.PI / 180;
+  const dLat = (point2.lat - point1.lat) * Math.PI / 180;
+  const dLng = (point2.lng - point1.lng) * Math.PI / 180;
 
-  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-           Math.cos(φ1) * Math.cos(φ2) *
-           Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+           Math.cos(lat1) * Math.cos(lat2) *
+           Math.sin(dLng/2) * Math.sin(dLng/2);
   
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   return R * c;
@@ -179,8 +213,105 @@ interface SearchResult {
   distance?: number;
 }
 
+// Add proper type declarations for geolocation
+interface GeolocationResponse {
+  location: {
+    lat: number;
+    lng: number;
+  };
+  accuracy: number;
+}
+
+interface GeolocationError {
+  code: number;
+  message: string;
+  PERMISSION_DENIED: number;
+  POSITION_UNAVAILABLE: number;
+  TIMEOUT: number;
+}
+
+// Define the MarkerLibrary type
+interface MarkerLibrary {
+  AdvancedMarkerElement: new (options: google.maps.marker.AdvancedMarkerElementOptions) => google.maps.marker.AdvancedMarkerElement;
+}
+
+// Extend the existing google.maps type
+declare module '@react-google-maps/api' {
+  export interface Libraries {
+    marker: MarkerLibrary;
+  }
+}
+
+// Update the marker cleanup code to handle both types correctly
+const clearMarker = (marker: google.maps.Marker | google.maps.marker.AdvancedMarkerElement) => {
+  if (marker instanceof google.maps.Marker) {
+    marker.setMap(null);
+  } else if ('map' in marker) {
+    marker.map = null;
+  }
+};
+
 const MapComponent = () => {
   const router = useRouter();
+
+  // 1. Group related state together at the top
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [userLocation, setUserLocation] = useState<google.maps.LatLngLiteral | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  // ... other state declarations
+
+  // 2. Move the onboarding effect up with other initialization effects
+  useEffect(() => {
+    const initializeApp = async () => {
+      // Check onboarding status
+      const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
+      if (!hasSeenOnboarding) {
+        setShowOnboarding(true);
+      }
+
+      // Initialize location
+      if (!("geolocation" in navigator)) {
+        console.error('❌ Geolocation is not supported');
+        return;
+      }
+
+      try {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          });
+        });
+
+        const userPos = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        };
+
+        setUserLocation(userPos);
+        
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.panTo(userPos);
+          mapInstanceRef.current.setZoom(14);
+          addUserLocationMarker(mapInstanceRef.current, userPos);
+        }
+      } catch (error) {
+        console.error('Error getting location:', error);
+        const defaultLocation = { lat: 51.5074, lng: -0.1278 };
+        setUserLocation(defaultLocation);
+      }
+    };
+
+    initializeApp();
+  }, []); // Run once on mount
+
+  const handleOnboardingClose = (dontShowAgain: boolean) => {
+    if (dontShowAgain) {
+      localStorage.setItem('hasSeenOnboarding', 'true');
+    }
+    setShowOnboarding(false);
+  };
 
   // Move helper functions to the top of the component
   const createMarkerElement = (markerData: MarkerData) => {
@@ -240,8 +371,6 @@ const MapComponent = () => {
   const [editingTitle, setEditingTitle] = useState('');
   const [isMapView, setIsMapView] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string>('');
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [spotState, setSpotState] = useState<SpotState>('new');
   const [isEditing, setIsEditing] = useState(false);
   const [maxDistance, setMaxDistance] = useState(1609); // 1 mile in meters
@@ -258,12 +387,10 @@ const MapComponent = () => {
   // 3. Ref hooks
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markersMapRef = useRef<Map<string, google.maps.Marker | google.maps.marker.AdvancedMarkerElement>>(new Map());
+  const userLocationMarkerRef = useRef<google.maps.Marker | google.maps.marker.AdvancedMarkerElement | null>(null);
 
   // 4. Load script hook
-  const { isLoaded } = useLoadScript({
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
-    libraries
-  });
+  const { isLoaded, loadMarker } = useGoogleMaps();
 
   // 5. Memo hooks
   const center = useMemo(() => 
@@ -287,7 +414,7 @@ const MapComponent = () => {
 
   // Move loadSpots before handleCategoryClick
   const loadSpots = useCallback(async () => {
-    if (!user) return;
+    if (!user || !mapInstanceRef.current) return;
     
     try {
       const spots: MarkerData[] = [];
@@ -336,32 +463,21 @@ const MapComponent = () => {
       // Update markers on the map
       if (mapInstanceRef.current) {
         // Clear existing markers
-        markersMapRef.current.forEach(marker => {
-          if (marker instanceof google.maps.Marker) {
-            marker.setMap(null);
-          } else {
-            marker.map = null;
-          }
-        });
+        markersMapRef.current.forEach(clearMarker);
         markersMapRef.current.clear();
+
+        // Load the marker library
+        const markerLib = await loadMarker();
+        if (!markerLib) return;
 
         // Add new markers
         filteredSpots.forEach(markerData => {
-          const marker = new google.maps.Marker({
+          const marker = new markerLib.AdvancedMarkerElement({
+            map: mapInstanceRef.current,
             position: markerData.position,
             title: markerData.title,
-            icon: {
-              url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="12" cy="12" r="8" fill="${markerData.isGlobal ? '#a3ff12' : '#ffffff'}" stroke="white" stroke-width="2"/>
-                </svg>
-              `),
-              scaledSize: new google.maps.Size(24, 24),
-              anchor: new google.maps.Point(12, 12)
-            }
+            content: createMarkerElement(markerData)
           });
-
-          marker.setMap(mapInstanceRef.current);
 
           marker.addListener('click', () => {
             setSelectedMarker(markerData);
@@ -376,7 +492,7 @@ const MapComponent = () => {
     } catch (error) {
       console.error('Error loading spots:', error);
     }
-  }, [showGlobalSpots, showPersonalSpots, user, userLocation, maxDistance, activeCategory, searchQuery, showNearbyOnly]);
+  }, [showGlobalSpots, showPersonalSpots, user, userLocation, maxDistance, activeCategory, searchQuery, showNearbyOnly, loadMarker]);
 
   // Then define handleCategoryClick
   const handleCategoryClick = useCallback((categoryId: string) => {
@@ -403,69 +519,40 @@ const MapComponent = () => {
     }
   }, [activeCategory, router, loadSpots]);
 
+  // First define addUserLocationMarker before it's used
+  const addUserLocationMarker = (map: google.maps.Map, position: google.maps.LatLngLiteral) => {
+    if (userLocationMarkerRef.current) {
+      if (userLocationMarkerRef.current instanceof google.maps.Marker) {
+        userLocationMarkerRef.current.setMap(null);
+      } else {
+        userLocationMarkerRef.current.map = null;
+      }
+      userLocationMarkerRef.current = null;
+    }
+
+    if (google.maps.marker?.AdvancedMarkerElement) {
+      userLocationMarkerRef.current = new google.maps.marker.AdvancedMarkerElement({
+        map: map,
+        position: position,
+        content: createUserLocationMarker()
+      });
+    } else {
+      userLocationMarkerRef.current = new google.maps.Marker({
+        map: map,
+        position: position,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 7,
+          fillColor: '#3B82F6',
+          fillOpacity: 1,
+          strokeColor: '#FFFFFF',
+          strokeWeight: 2,
+        }
+      });
+    }
+  };
+
   // 7. Effect hooks
-  useEffect(() => {
-    let mounted = true;
-
-    const getInitialLocation = async () => {
-      if (!("geolocation" in navigator)) {
-        console.log('Geolocation is not supported');
-        return;
-      }
-
-      setIsLoadingLocation(true);
-
-      try {
-        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(
-            resolve,
-            reject,
-            {
-              enableHighAccuracy: true,
-              timeout: 10000,
-              maximumAge: 30000
-            }
-          );
-        });
-
-        if (!mounted) return;
-
-        const userPos = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude
-        };
-        
-        setUserLocation(userPos);
-        
-        if (mapInstanceRef.current) {
-          mapInstanceRef.current.panTo(userPos);
-          mapInstanceRef.current.setZoom(14);
-        }
-      } catch (error) {
-        if (!mounted) return;
-        
-        // Set default location on error
-        const defaultLocation = { lat: 51.5074, lng: -0.1278 };
-        setUserLocation(defaultLocation);
-        
-        if (mapInstanceRef.current) {
-          mapInstanceRef.current.panTo(defaultLocation);
-          mapInstanceRef.current.setZoom(11);
-        }
-      } finally {
-        if (mounted) {
-          setIsLoadingLocation(false);
-        }
-      }
-    };
-
-    getInitialLocation();
-
-    return () => {
-      mounted = false;
-    };
-  }, []); // Empty dependency array for initial mount only
-
   useEffect(() => {
     loadSpots();
   }, [loadSpots, userLocation, activeCategory, isMapView]); // Add isMapView as dependency
@@ -473,88 +560,39 @@ const MapComponent = () => {
   useEffect(() => {
     if (!mapInstanceRef.current) return;
 
-    // Clear existing markers
-    markersMapRef.current.forEach(marker => {
-      if (marker instanceof google.maps.Marker) {
-        marker.setMap(null);
-      } else {
-        marker.map = null;
-      }
-    });
+    // Clear existing markers safely
+    markersMapRef.current.forEach(clearMarker);
     markersMapRef.current.clear();
 
-    markers.forEach(markerData => {
+    markers.forEach(async (markerData) => {
       if ((markerData.isGlobal && !showGlobalSpots) || 
           (!markerData.isGlobal && !showPersonalSpots)) {
         return;
       }
 
-      // Check if AdvancedMarkerElement is available
-      if (google.maps.marker?.AdvancedMarkerElement) {
-        const marker = new google.maps.marker.AdvancedMarkerElement({
-          map: mapInstanceRef.current,
-          position: markerData.position,
-          title: markerData.title,
-          content: createMarkerElement(markerData)
-        });
+      try {
+        const markerLib = await loadMarker();
+        if (markerLib) {
+          const marker = new markerLib.AdvancedMarkerElement({
+            map: mapInstanceRef.current,
+            position: markerData.position,
+            title: markerData.title,
+            content: createMarkerElement(markerData)
+          });
 
-        marker.addListener('click', () => {
-          setSelectedMarker(markerData);
-          setEditingTitle(markerData.title);
-          setSpotState(markerData.id.length >= 20 ? 'locked' : 'new');
-        });
+          marker.addListener('click', () => {
+            setSelectedMarker(markerData);
+            setEditingTitle(markerData.title);
+            setSpotState(markerData.id.length >= 20 ? 'locked' : 'new');
+          });
 
-        markersMapRef.current.set(markerData.id, marker);
-      } else {
-        // Fallback to regular Marker
-        const marker = new google.maps.Marker({
-          map: mapInstanceRef.current,
-          position: markerData.position,
-          title: markerData.title,
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 7,
-            fillColor: markerData.isGlobal ? '#FFFFFF' : '#000000',
-            fillOpacity: 1,
-            strokeColor: '#FFFFFF',
-            strokeWeight: 2,
-          }
-        });
-
-        marker.addListener('click', () => {
-          setSelectedMarker(markerData);
-          setEditingTitle(markerData.title);
-          setSpotState(markerData.id.length >= 20 ? 'locked' : 'new');
-        });
-
-        markersMapRef.current.set(markerData.id, marker);
+          markersMapRef.current.set(markerData.id, marker);
+        }
+      } catch (error) {
+        console.error('Error creating marker:', error);
       }
     });
-
-    // Add user location marker if available
-    if (userLocation) {
-      if (google.maps.marker?.AdvancedMarkerElement) {
-        new google.maps.marker.AdvancedMarkerElement({
-          map: mapInstanceRef.current,
-          position: userLocation,
-          content: createUserLocationMarker()
-        });
-      } else {
-        new google.maps.Marker({
-          map: mapInstanceRef.current,
-          position: userLocation,
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 7,
-            fillColor: '#3B82F6',
-            fillOpacity: 1,
-            strokeColor: '#FFFFFF',
-            strokeWeight: 2,
-          }
-        });
-      }
-    }
-  }, [markers, userLocation, showGlobalSpots, showPersonalSpots]);
+  }, [markers, showGlobalSpots, showPersonalSpots, loadMarker]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -564,23 +602,24 @@ const MapComponent = () => {
     }
   }, []);
 
+  // Effect to handle initial URL parameters - intentionally runs only once on mount
   useEffect(() => {
-    // Check URL parameters for search and category
     const params = new URLSearchParams(window.location.search);
     const searchParam = params.get('search');
     const categoryParam = params.get('category');
     
-    // Handle category parameter first
     if (categoryParam) {
       setActiveCategory(categoryParam);
     }
-
-    // Handle search parameter
+    
     if (searchParam) {
       setSearchQuery(searchParam);
+      // We intentionally call handleSearch here without adding it as a dependency
+      // because this effect should only run once on mount to initialize from URL parameters
       handleSearch(searchParam);
     }
-  }, []);
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, []); // Empty dependency array since this should only run once on mount
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -835,95 +874,83 @@ const MapComponent = () => {
     }
   };
 
-  const getUserLocation = () => {
+  const getUserLocation = async () => {
     if (!("geolocation" in navigator)) {
-      console.log('Geolocation is not supported by your browser');
+      console.error('❌ Geolocation not supported');
       return;
     }
 
+    console.log('🎯 Location button clicked');
     setIsLoadingLocation(true);
 
-    const options = {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 30000
-    };
+    try {
+      console.log('🔍 Requesting location with high accuracy...');
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            console.log('✅ High accuracy position received');
+            resolve(pos);
+          },
+          (error) => {
+            console.log('⚠️ High accuracy failed, trying low accuracy...', error);
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                console.log('✅ Low accuracy position received');
+                resolve(pos);
+              },
+              (finalError) => {
+                console.error('❌ Both accuracy attempts failed', finalError);
+                reject(finalError);
+              },
+              { enableHighAccuracy: false, timeout: 10000, maximumAge: 30000 }
+            );
+          },
+          { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        );
+      });
 
-    const handleSuccess = (position: GeolocationPosition) => {
       const userPos = {
         lat: position.coords.latitude,
         lng: position.coords.longitude
       };
+
+      console.log('📍 Setting new user location:', userPos);
       setUserLocation(userPos);
       
       if (mapInstanceRef.current) {
+        console.log('🗺️ Updating map view');
         mapInstanceRef.current.panTo(userPos);
         mapInstanceRef.current.setZoom(14);
+        addUserLocationMarker(mapInstanceRef.current, userPos);
       }
-      
-      setIsLoadingLocation(false);
-    };
-
-    const handleError = (error: GeolocationPositionError) => {
-      console.error('Location error:', error.code, error.message);
-      
+    } catch (error) {
+      console.error('❌ Final error getting location:', error);
       // More specific error handling
-      let errorMessage = '';
-      switch (error.code) {
-        case error.PERMISSION_DENIED:
-          errorMessage = 'Please enable location permissions in your browser.';
-          break;
-        case error.POSITION_UNAVAILABLE:
-          errorMessage = 'Location information is unavailable.';
-          break;
-        case error.TIMEOUT:
-          errorMessage = 'Location request timed out. Please try again.';
-          break;
-        default:
-          errorMessage = 'An unknown error occurred getting your location.';
+      if (error instanceof GeolocationPositionError) {
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            console.error('Location permission denied');
+            break;
+          case error.POSITION_UNAVAILABLE:
+            console.error('Location information unavailable');
+            break;
+          case error.TIMEOUT:
+            console.error('Location request timed out');
+            break;
+        }
       }
-      console.error(errorMessage);
-      
-      // Set default location (e.g., London)
+
       const defaultLocation = { lat: 51.5074, lng: -0.1278 };
       setUserLocation(defaultLocation);
       
       if (mapInstanceRef.current) {
         mapInstanceRef.current.panTo(defaultLocation);
         mapInstanceRef.current.setZoom(11);
+        addUserLocationMarker(mapInstanceRef.current, defaultLocation);
       }
-      
+    } finally {
       setIsLoadingLocation(false);
-    };
-
-    try {
-      // First try to get a cached position
-      if ('permissions' in navigator) {
-        navigator.permissions.query({ name: 'geolocation' }).then((result) => {
-          if (result.state === 'granted') {
-            navigator.geolocation.getCurrentPosition(
-              handleSuccess,
-              handleError,
-              { ...options, maximumAge: 60000, timeout: 5000 }  // Try cached position first
-            );
-          } else {
-            // If no permission or cached position, request new position
-            navigator.geolocation.getCurrentPosition(handleSuccess, handleError, options);
-          }
-        });
-      } else {
-        // Fallback for browsers that don't support permissions API
-        navigator.geolocation.getCurrentPosition(handleSuccess, handleError, options);
-      }
-    } catch (error) {
-      console.error('Geolocation error:', error);
-      handleError({ 
-        code: 2, 
-        message: 'Position unavailable', 
-        PERMISSION_DENIED: 1, 
-        POSITION_UNAVAILABLE: 2, 
-        TIMEOUT: 3 
-      });
+      console.log('✨ Location request complete');
     }
   };
 
@@ -971,31 +998,7 @@ const MapComponent = () => {
     });
     
     if (userLocation) {
-      map.panTo(userLocation);
-      map.setZoom(14);
-      
-      // Check if AdvancedMarkerElement is available
-      if (google.maps.marker?.AdvancedMarkerElement) {
-        new google.maps.marker.AdvancedMarkerElement({
-          map,
-          position: userLocation,
-          content: createUserLocationMarker()
-        });
-      } else {
-        // Fallback to regular Marker
-        new google.maps.Marker({
-          map,
-          position: userLocation,
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 7,
-            fillColor: '#3B82F6',
-            fillOpacity: 1,
-            strokeColor: '#FFFFFF',
-            strokeWeight: 2,
-          }
-        });
-      }
+      addUserLocationMarker(map, userLocation);
     }
   };
 
@@ -1137,24 +1140,22 @@ const MapComponent = () => {
 
           {/* Map */}
           <div className="absolute inset-0">
-            <GoogleMap
+            <DynamicGoogleMap
               center={center}
               zoom={14}
-              options={{
-                ...mapOptions,
-                mapId: 'de621d29fd84f79d',
-              }}
+              options={mapOptions}
               onClick={handleMapClick}
               onLoad={handleMapLoad}
               mapContainerClassName="w-full h-full"
+              mapContainerStyle={{ width: '100%', height: '100%' }}
             />
 
             {/* Location Button */}
             <button
               onClick={getUserLocation}
               disabled={isLoadingLocation}
-              className="absolute right-6 bottom-24 p-3 rounded-full bg-background/80 backdrop-blur-sm 
-                       border border-border shadow-lg hover:bg-background/90 transition-colors z-10"
+              className="absolute right-6 bottom-24 p-3 rounded-full bg-black/80 backdrop-blur-sm 
+                       border border-zinc-800 shadow-lg hover:bg-black/90 transition-colors z-10"
               aria-label="Get current location"
             >
               {isLoadingLocation ? (
@@ -1501,6 +1502,11 @@ const MapComponent = () => {
           </div>
         </div>
       )}
+
+      {/* Add the onboarding overlay */}
+      {showOnboarding && (
+        <OnboardingOverlay onClose={handleOnboardingClose} />
+      )}
     </div>
   );
 };
@@ -1509,8 +1515,8 @@ const MapComponent = () => {
 export default dynamic(() => Promise.resolve(MapComponent), {
   ssr: false,
   loading: () => (
-    <div className="fixed inset-x-0 bottom-16 top-0 flex items-center justify-center bg-background">
-      <Loader2 className="h-8 w-8 animate-spin" />
+    <div className="fixed inset-x-0 bottom-16 top-0 flex items-center justify-center bg-black">
+      <Loader2 className="h-8 w-8 animate-spin text-[#B2FF4D]" />
     </div>
   )
 }); 

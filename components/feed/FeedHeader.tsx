@@ -17,7 +17,7 @@ export function FeedHeader() {
   return (
     <div className="sticky top-0 z-[100] bg-black w-full h-[65px]">
       <div className="flex justify-between items-center px-[18px] py-4 max-w-5xl mx-auto w-full h-full">
-        <h1 className={cn("text-lg font-semibold text-white", oxanium.className)}>Spottt</h1>
+        <h1 className={cn("text-lg font-semibold text-white", oxanium.className)}>Send Pin</h1>
         
         <button 
           className="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-800 hover:bg-zinc-700 transition-colors"

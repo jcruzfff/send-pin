@@ -1,0 +1,512 @@
+Add a Google map to a React app 
+
+bookmark_border
+
+
+About this codelab
+schedule
+42 minutes
+subject
+Last updated November 8, 2024
+account_circle
+Written by Ken Nevarez
+1. Before you begin 
+In this codelab, you learn everything that you need to get started with the vis.gl/react-google-map library for the Google Maps JavaScript API, which lets you add a Google map to a React app. You learn how to get set up, load the Maps JavaScript API, display your first map, work with markers and marker clustering, draw on the map, and handle user interaction.
+
+Note: vis.gl/react-google-map uses Google Maps Platform services. Use of Google Maps Platform services through this library is subject to the Google Maps Platform Terms of Service.
+
+vis.gl/react-google-map is not a Google Maps Platform Core Service. Therefore, the Google Maps Platform Terms of Service (e.g., Technical Support Services, Service Level Agreements, and Deprecation Policy) do not apply to this library.
+
+You can read more about Support options in the vis.gl/react-google-map README.
+
+Prerequisites
+Basic knowledge of JavaScript, HTML, and CSS
+What you learn
+How to get started with the vis.gl/react-google-map library for Google Maps Platform.
+How to load the Maps JavaScript API declaratively.
+How to load a map in a React app.
+How to use markers, custom markers, and marker clustering.
+How to work with the Maps JavaScript API event system to provide user interaction.
+How to control the map dynamically.
+How to draw on the map.
+What you need
+A Google Cloud Account with billing enabled.
+A Google Maps Platform API key with the Maps JavaScript API enabled.
+Node.js installed on your computer.
+A text editor or IDE of your choice.
+The vis.gl/react-google-map library for the Google Maps JavaScript API.
+The googlemaps/markerclusterer library
+Set up Google Maps Platform
+If you do not already have a Google Cloud Platform account and a project with billing enabled, please see the Getting Started with Google Maps Platform guide to create a billing account and a project.
+
+In the Cloud Console, click the project drop-down menu and select the project that you want to use for this codelab.
+
+
+Enable the Google Maps Platform APIs and SDKs required for this codelab in the Google Cloud Marketplace. To do so, follow the steps in this video or this documentation.
+Generate an API key in the Credentials page of Cloud Console. You can follow the steps in this video or this documentation. All requests to Google Maps Platform require an API key.
+2. Get set up 
+Download the starter project
+To download the starter project template and solution code, follow these steps:
+
+Download or fork the GitHub repository. The starter project is located in the /starter directory and includes the basic file structure that you need to complete the codelab. You do all your work in the /starter/src directory.
+
+git clone https://github.com/googlemaps-samples/codelab-maps-platform-101-react-js.git
+Alternatively, click this button to download the source code.
+
+Give Me the Code
+
+Navigate to the /starter directory and install npm. This installs all the needed dependencies listed in the package.json file.
+
+cd starter && npm install
+While still in the /starter directory:
+
+npm start
+The starter project has been set up for you to use the Vite development server, which compiles and runs the code that you write locally. Vite development server also automatically reloads your app in the browser any time that you make code changes. If you follow the link provided at the end of the build process you should find a web page that reads: "Hello, world!"
+
+If you want to run the full solution code, navigate to the /solution directory and complete the same setup steps.
+3. Load the Maps JavaScript API 
+The foundation of using Google Maps Platform for the web is the Maps JavaScript API. This API provides a JavaScript interface for using all the features of Google Maps Platform, including the map, markers, drawing tools, and other Google Maps Platform services, such as Places.
+
+To load the Maps JavaScript API with the React framework, you need to use the APIProvider component that's part of the vis.gl/react-google-map library. This component can be added at any level of the app, typically somewhere at the top, and it renders all child components unmodified. Besides handling the loading of the Maps JavaScript API, it also provides context information and functions for the other components and hooks of this library. The APIProvider is included in the vis.gl/react-google-map library, so it was installed when you ran npm install earlier.
+
+To use the APIProvider component, follow these steps:
+
+Open the /src/app.tsx file. This file is where you do all your work for this codelab.
+At the top of the file, import the APIProvider class from the @vis.gl/react-google-maps library:
+
+import {APIProvider} from '@vis.gl/react-google-maps';
+In the App function definition, set the APIProvider component's apiKey parameter with the API Key created in the previous step and the onLoad property with a console log message:
+
+<APIProvider apiKey={'Your API key here'} onLoad={() => console.log('Maps API has loaded.')}>
+The APIProvider component takes a series of properties that specify various options for loading the Maps JavaScript API, including your Google Maps Platform API key, what version of the API you want to load, and any additional libraries provided by the Maps JavaScript API that you want to load.
+
+The Google Maps API key is the only required property for APIProvider to function, and we included the onLoad property for demonstration purposes. For more information, see <APIProvider> Component.
+
+Your app.tsx file should look like this:
+
+
+import React from 'react';
+import {createRoot} from "react-dom/client";
+import {APIProvider} from '@vis.gl/react-google-maps';
+
+const App = () => (
+ <APIProvider apiKey={'Your API key here'} onLoad={() => console.log('Maps API has loaded.')}>
+   <h1>Hello, world!</h1>
+ </APIProvider>
+);
+
+const root = createRoot(document.getElementById('app'));
+root.render(<App />);
+
+export default App;
+If everything is successful, you should see the console.log statement in the browser console. Now that the Maps JavaScript API is loaded, you can render the dynamic map in the next step.
+
+4. Display a map 
+Time to display your first map!
+
+The most commonly used part of the Maps JavaScript API is google.maps.Map, which is the class that lets you create and manipulate map instances. The vis.gl/react-google-map library wraps this class in the Map component. First, import the Map and MapCameraChangedEvent classes.
+
+
+import {APIProvider, Map, MapCameraChangedEvent} from '@vis.gl/react-google-maps';
+The Map component supports a variety of different settings for the map. For this codelab, you use the following settings:
+
+defaultCenter, which sets the latitude and longitude for the center of the map.
+defaultZoom, which sets the initial zoom level of the map.
+To display a map, place the following code within the APIProvider tags to center the map on Sydney, Australia, and give it a zoom level of 13, which is the right zoom level to show the city center:
+
+ <Map
+      defaultZoom={13}
+      defaultCenter={ { lat: -33.860664, lng: 151.208138 } }
+      onCameraChanged={ (ev: MapCameraChangedEvent) =>
+        console.log('camera changed:', ev.detail.center, 'zoom:', ev.detail.zoom)
+      }>
+</Map>
+You should now see a map of Sydney in your browser:
+
+761c8c51c6631174.png
+
+To recap, in this section you displayed a map with the <Map> component and set its initial state with properties. You also used events to capture when the camera changed.
+
+Your app.tsx file should look something like this:
+
+
+import React from 'react';
+import {createRoot} from "react-dom/client";
+import {APIProvider, Map, MapCameraChangedEvent} from '@vis.gl/react-google-maps';
+
+const App = () => (
+ <APIProvider apiKey={'Your API key here'} onLoad={() => console.log('Maps API has loaded.')}>
+   <Map
+      defaultZoom={13}
+      defaultCenter={ { lat: -33.860664, lng: 151.208138 } }
+      onCameraChanged={ (ev: MapCameraChangedEvent) =>
+        console.log('camera changed:', ev.detail.center, 'zoom:', ev.detail.zoom)
+      }>
+   </Map>
+ </APIProvider>
+);
+
+const root = createRoot(document.getElementById('app'));
+root.render(<App />);
+
+export default App;
+5. Add cloud-based map styling 
+A map ID is a requirement to use Advanced Markers, which you use to mark points of interest on your map of Sydney. A map ID is also used for cloud-based map styling.
+
+You can customize the style of your map using Cloud-based map styling.
+
+Create a Map ID
+If you have not yet created a map ID with a map style associated to it, see the Map IDs guide to complete the following steps:
+
+Create a map ID.
+Associate a map ID to a map style.
+Note: Using a Map ID on Maps SDK for Android or Maps SDK for iOS triggers a map load that is charged against the Dynamic Maps SKU. See Google Maps Billing for more information.
+
+To use the map ID that you created, set the mapId property of the <Map> component:
+
+
+<Map
+    defaultZoom={13}
+    defaultCenter={ { lat: -33.860664, lng: 151.208138 } }
+    mapId='DEMO_MAP_ID'
+    onCameraChanged={ (ev: MapCameraChangedEvent) =>
+        console.log('camera changed:', ev.detail.center, 'zoom:', ev.detail.zoom)
+    }>
+</Map>
+You should see the style that you selected on the map!
+
+6. Add markers to the map 
+There are lots of things that developers do with the Maps JavaScript API, but putting markers on the map is definitely the most popular. Markers let you show specific points on the map, and are a common UI element for handling user interaction. If you've used Google Maps before, you're probably familiar with the default marker, which looks like this:
+
+d9a6513b82a2f1e1.png
+
+To use the AdvancedMarker component to put markers on the map, follow these steps:
+
+Create a list of objects to represent points of interest in the Sydney area, place it right below your imports, outside of the App definition:
+
+type Poi ={ key: string, location: google.maps.LatLngLiteral }
+const locations: Poi[] = [
+  {key: 'operaHouse', location: { lat: -33.8567844, lng: 151.213108  }},
+  {key: 'tarongaZoo', location: { lat: -33.8472767, lng: 151.2188164 }},
+  {key: 'manlyBeach', location: { lat: -33.8209738, lng: 151.2563253 }},
+  {key: 'hyderPark', location: { lat: -33.8690081, lng: 151.2052393 }},
+  {key: 'theRocks', location: { lat: -33.8587568, lng: 151.2058246 }},
+  {key: 'circularQuay', location: { lat: -33.858761, lng: 151.2055688 }},
+  {key: 'harbourBridge', location: { lat: -33.852228, lng: 151.2038374 }},
+  {key: 'kingsCross', location: { lat: -33.8737375, lng: 151.222569 }},
+  {key: 'botanicGardens', location: { lat: -33.864167, lng: 151.216387 }},
+  {key: 'museumOfSydney', location: { lat: -33.8636005, lng: 151.2092542 }},
+  {key: 'maritimeMuseum', location: { lat: -33.869395, lng: 151.198648 }},
+  {key: 'kingStreetWharf', location: { lat: -33.8665445, lng: 151.1989808 }},
+  {key: 'aquarium', location: { lat: -33.869627, lng: 151.202146 }},
+  {key: 'darlingHarbour', location: { lat: -33.87488, lng: 151.1987113 }},
+  {key: 'barangaroo', location: { lat: - 33.8605523, lng: 151.1972205 }},
+];
+
+const App = () => (
+  ...
+);
+Customize your pins with the <Pin> element:
+
+<Pin background={'#FBBC04'} glyphColor={'#000'} borderColor={'#000'} />
+Create a custom component to render your list with Advanced Markers, place this below the definition of App:
+
+const App = () => (
+  ...
+);
+
+const PoiMarkers = (props: {pois: Poi[]}) => {
+  return (
+    <>
+      {props.pois.map( (poi: Poi) => (
+        <AdvancedMarker
+          key={poi.key}
+          position={poi.location}>
+        <Pin background={'#FBBC04'} glyphColor={'#000'} borderColor={'#000'} />
+        </AdvancedMarker>
+      ))}
+    </>
+  );
+};
+Add the PoiMarkers component as a child of the Map component:
+
+<Map
+  ... map properties ...
+>
+  <PoiMarkers pois={locations} />
+</Map>
+Finally, add Pin and AdvancedMarker to your imports.
+
+import {
+  APIProvider,
+  Map,
+  AdvancedMarker,
+  MapCameraChangedEvent,
+  Pin
+} from '@vis.gl/react-google-maps';
+You should see customized Advanced Markers on the map:
+
+98d12a994e12a2c1.png
+
+7. Enable marker clustering 
+When using a lot of markers or markers that are in close proximity to one another, you may encounter an issue where the markers overlap or appear too crowded together, which causes a bad user experience. For example, after creating the markers in the last step, you may have noticed this:
+
+98d12a994e12a2c1.png
+
+This is where marker clustering comes in. Marker clustering is another commonly implemented feature, which groups nearby markers into a single icon that changes depending on the zoom level, like this:
+
+3da24a6b737fe499.png
+
+The algorithm for marker clustering divides the visible area of the map into a grid, then clusters icons that are in the same cell. Luckily, you don't have to worry about any of that because the Google Maps Platform team created a helpful, open-source utility library called MarkerClustererPlus that does everything for you automatically. You can view the source for the MarkerClustererPlus library on GitHub.
+
+To enable marker clustering, follow these steps:
+
+At the top of the app.tsx file, lets update and add to our library imports and supporting types.
+
+import React, {useEffect, useState, useRef, useCallback} from 'react';
+import {createRoot} from "react-dom/client";
+import {
+    APIProvider,
+    Map,
+    AdvancedMarker,
+    MapCameraChangedEvent,
+    useMap,
+    Pin
+  } from '@vis.gl/react-google-maps';
+  import {MarkerClusterer} from '@googlemaps/markerclusterer';
+  import type {Marker} from '@googlemaps/markerclusterer';
+For the template project for this codelab, the MarkerClustererPlus utility library is already included in the dependencies declared in the package.json file, so you already installed it when you ran npm install at the beginning of this codelab.
+
+Create variables for the MarkerClusterer and supporting elements in the PoiMarkers component.
+You need an instance of the map to initialize the MarkerClusterer. Get that instance from the useMap() hook:
+
+
+const map = useMap();
+Create a list of markers stored in a state variable:
+
+const [markers, setMarkers] = useState<{[key: string]: Marker}>({});
+Store the clusterer as a reference:
+
+const clusterer = useRef<MarkerClusterer | null>(null);
+Also in your PoiMarkers component, create an instance of MarkerClusterer and pass it the instance of the Map where you want the marker clusters displayed:
+
+ useEffect(() => {
+    if (!map) return;
+    if (!clusterer.current) {
+      clusterer.current = new MarkerClusterer({map});
+    }
+  }, [map]);
+Create an effect that updates the clusterer when the marker list changes:
+
+useEffect(() => {
+    clusterer.current?.clearMarkers();
+    clusterer.current?.addMarkers(Object.values(markers));
+  }, [markers]);
+Create a function to mint references for new markers:
+
+const setMarkerRef = (marker: Marker | null, key: string) => {
+    if (marker && markers[key]) return;
+    if (!marker && !markers[key]) return;
+
+    setMarkers(prev => {
+      if (marker) {
+        return {...prev, [key]: marker};
+      } else {
+        const newMarkers = {...prev};
+        delete newMarkers[key];
+        return newMarkers;
+      }
+    });
+  };
+Use this method in the AdvancedMarker element to create the reference for each marker.
+
+<AdvancedMarker
+  key={poi.key}
+  position={poi.location}
+  ref={marker => setMarkerRef(marker, poi.key)}
+  >
+    <Pin background={'#FBBC04'} glyphColor={'#000'} borderColor={'#000'} />
+</AdvancedMarker>
+You should now see marker clusters on your map:
+
+3da24a6b737fe499.png
+
+If you zoom in and out, MarkerClustererPlus automatically renumbers and resizes the clusters for you. You can also click any marker cluster icon to zoom in and see all of the markers included in that cluster.
+
+d5e75480e9abd3c7.png
+
+To recap, in this section you imported the open-source MarkerClustererPlus utility library and used it to create an instance of MarkerClusterer that, with the help of React state and references, automatically clustered the markers you created in the previous step.
+
+Your PoiMarkers component should look like this:
+
+
+const PoiMarkers = (props: { pois: Poi[] }) => {
+  const map = useMap();
+  const [markers, setMarkers] = useState<{[key: string]: Marker}>({});
+  const clusterer = useRef<MarkerClusterer | null>(null);
+
+  // Initialize MarkerClusterer, if the map has changed
+  useEffect(() => {
+    if (!map) return;
+    if (!clusterer.current) {
+      clusterer.current = new MarkerClusterer({map});
+    }
+  }, [map]);
+
+  // Update markers, if the markers array has changed
+  useEffect(() => {
+    clusterer.current?.clearMarkers();
+    clusterer.current?.addMarkers(Object.values(markers));
+  }, [markers]);
+
+  const setMarkerRef = (marker: Marker | null, key: string) => {
+    if (marker && markers[key]) return;
+    if (!marker && !markers[key]) return;
+
+    setMarkers(prev => {
+      if (marker) {
+        return {...prev, [key]: marker};
+      } else {
+        const newMarkers = {...prev};
+        delete newMarkers[key];
+        return newMarkers;
+      }
+    });
+  };
+
+  return (
+    <>
+      {props.pois.map( (poi: Poi) => (
+        <AdvancedMarker
+          key={poi.key}
+          position={poi.location}
+          ref={marker => setMarkerRef(marker, poi.key)}
+          >
+            <Pin background={'#FBBC04'} glyphColor={'#000'} borderColor={'#000'} />
+        </AdvancedMarker>
+      ))}
+    </>
+  );
+};
+Next, you learn how to handle user interaction.
+
+8. Add user interaction 
+Now you have a great looking map that displays some of Sydney's most popular tourist destinations. In this section, you add some additional handling of user interactions with the event system of the Maps JavaScript API to further improve the user experience of your map.
+
+The Maps JavaScript API provides a comprehensive event system that uses JavaScript event handlers to let you handle various user interactions in code. For example, you can create event listeners to trigger code execution for interactions like the user clicking the map and markers, panning the view of the map, zooming in and out, and more.
+
+To add a click listener to your markers and then programmatically make the map pan so that the clicked marker appears at the center of the map, follow these steps:
+
+Create a click handler callback.
+In the PoiMarkers component, define a click handler with React's useCallback().
+
+The click event is triggered whenever a user clicks or taps a marker, and returns an event as a JSON object with information about the UI element that was clicked. To improve the user experience of the map, you can handle the click event and use its LatLng object to get the latitude and longitude of the marker that was clicked.
+
+Once you have the latitude and longitude, pass that to the Map instance's built-in panTo() function to have the map smoothly pan to recenter on the clicked marker by adding the following in the callback function of the event handler:
+
+
+const PoiMarkers = (props: { pois: Poi[] }) => {
+...
+const handleClick = useCallback((ev: google.maps.MapMouseEvent) => {
+    if(!map) return;
+    if(!ev.latLng) return;
+    console.log('marker clicked:', ev.latLng.toString());
+    map.panTo(ev.latLng);
+  });
+...
+};
+Assign the click handlers to the markers.
+The AdvancedMarker elements of the vis.gl/react-google-map library expose two properties that are helpful for handling clicks:
+
+clickable: If true, the AdvancedMarker will be clickable and trigger the gmp-click event, and will be interactive for accessibility purposes. For example, it will allow keyboard navigation with the arrow keys.
+onClick: The callback function to call when a click event occurs.
+Update your PoiMarkers rendering to assign a click handler to each marker:
+
+return (
+    <>
+      {props.pois.map( (poi: Poi) => (
+        <AdvancedMarker
+          ... other properties ...
+          clickable={true}
+          onClick={handleClick}
+          >
+           ...
+        </AdvancedMarker>
+      ))}
+    </>
+  );
+Go to the browser and click your markers. You should see the map automatically pan to recenter when a marker is clicked.
+To recap, in this section, you used the event system of React to assign a click handler to all of markers on the map, retrieved the latitude and longitude of the marker from the fired click event, and used that to recenter the map whenever a marker is clicked.
+
+Only one more step to go! Next, you further improve the user experience of the map with the drawing features of the Maps JavaScript API.
+
+9. Draw on the map 
+So far, you created a map of Sydney that shows markers for popular tourist destinations and handles the user interaction. For the last step of this codelab, you use the drawing features of the Maps JavaScript API to add an additional useful feature to your map experience.
+
+Imagine that this map is going to be used by users who want to explore the city of Sydney. A useful feature would be to visualize a radius around a marker when it's clicked. This would let the user understand what other destinations are within walking distance of the clicked marker.
+
+The Maps JavaScript API includes a set of functions for drawing shapes on the map, such as squares, polygons, lines, and circles. The vis.gl/react-google-map library makes these capabilities available to you in React.
+
+Next, you render a circle to show an 800-meter (approximately half-mile) radius around a marker when it's clicked.
+
+The starter repository contains a custom component for a circle element. You can find it in the src/components/circle.tsx file.
+
+To let users draw on the map, follow these steps:
+
+Update your imports to include the provided Circle component.
+
+import {Circle} from './components/circle'
+Create a state variable for the circle center.
+Capture the state of the center of your circle in your PoiMarkers component. You set the initial state to null, and lean into the fact that a circle won't render unless it has a valid center location (and radius).
+
+
+const PoiMarkers = (props: { pois: Poi[] }) => {
+...
+  const [circleCenter, setCircleCenter] = useState(null)
+...
+};
+Update the circle center when a click event is handled.
+Call setCircleCenter with the location found in the event object:
+
+
+const handleClick = useCallback((ev: google.maps.MapMouseEvent) => {
+    ...
+    setCircleCenter(ev.latLng);
+  });
+The drawing functions in the Maps JavaScript API give you a wide variety of options for how a drawn object appears on the map. To render a circular radius, set the properties of the circle element, such as color and stroke weight, where the circle should be centered and its radius.
+
+Add a circle to your rendering and bind the center to your state variable. Your rendering should look like this:
+
+return (
+    <>
+      <Circle
+          radius={800}
+          center={circleCenter}
+          strokeColor={'#0c4cb3'}
+          strokeOpacity={1}
+          strokeWeight={3}
+          fillColor={'#3b82f6'}
+          fillOpacity={0.3}
+        />
+      {props.pois.map( (poi: Poi) => (
+        <AdvancedMarker
+          key={poi.key}
+          position={poi.location}
+          ref={marker => setMarkerRef(marker, poi.key)}
+          clickable={true}
+          onClick={handleClick}
+          >
+            <Pin background={'#FBBC04'} glyphColor={'#000'} borderColor={'#000'} />
+        </AdvancedMarker>
+      ))}
+    </>
+  );
+
+All done! Go to your browser and click one of the markers. You should see a circular radius rendered around it:
+
+d243587f4a9ec4a6.png
+
+10. Congratulations 
+You built your first web app with the vis.gl/react-google-map library for Google Maps Platform, including loading the Maps JavaScript API, loading a map, working with markers, controlling and drawing on the map, and adding user interaction.
+
+To view the completed code, see the /solutions directory.

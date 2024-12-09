@@ -1,33 +1,32 @@
 import BackButton from '@/components/BackButton';
+import { Oxanium } from 'next/font/google';
+import { cn } from '@/lib/utils';
+
+const oxanium = Oxanium({ 
+  subsets: ['latin'],
+  variable: '--font-oxanium',
+});
 
 export default function LetPage() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-black">
       <div className="max-w-5xl mx-auto px-[18px]">
         <div className="py-4">
           <BackButton />
         </div>
         
-        <h1 className="text-2xl font-bold mb-6">Let</h1>
+        <h1 className={cn("text-2xl font-bold mb-6 text-white", oxanium.className)}>
+          Let's Go Back
+        </h1>
         
-        {/* Placeholder spots list */}
-        <div className="space-y-4">
-          {[1, 2, 3, 4, 5].map((spot) => (
-            <div
-              key={spot}
-              className="p-4 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center"
-            >
-              {/* Placeholder image */}
-              <div className="w-16 h-16 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center justify-center">
-                <span className="text-xs text-muted-foreground">Image</span>
-              </div>
-              
-              <div className="ml-4">
-                <h2 className="font-medium">Let Spot {spot}</h2>
-                <p className="text-sm text-muted-foreground">Challenge description</p>
-              </div>
-            </div>
-          ))}
+        {/* Coming Soon Message */}
+        <div className="flex flex-col items-center justify-center py-20">
+          <p className={cn("text-xl text-white mb-2", oxanium.className)}>
+            Feature Coming Soon
+          </p>
+          <p className="text-zinc-400 text-center">
+            We're working on something special.
+          </p>
         </div>
       </div>
     </div>

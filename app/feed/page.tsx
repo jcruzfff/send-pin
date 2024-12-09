@@ -311,9 +311,47 @@ export default function FeedPage() {
       <FeedHeader />
       
       <div className="max-w-[500px] mx-auto">
-        {posts.map((post) => (
-          <VideoPost key={post.id} post={post} />
-        ))}
+        {posts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center px-4 mt-8">
+            {/* Post Mockup */}
+            <div className="w-full max-w-[500px] rounded-lg overflow-hidden mb-6">
+              {/* Header mockup */}
+              <div className="p-4 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-zinc-800" />
+                <div className="space-y-2">
+                  <div className="w-24 h-2.5 bg-zinc-800 rounded-full" />
+                  <div className="w-16 h-2 bg-zinc-800/60 rounded-full" />
+                </div>
+              </div>
+              
+              {/* Content mockup */}
+              <div className="aspect-square bg-zinc-900 flex items-center justify-center">
+                <p className={cn(
+                  "text-lg text-white/80 text-center px-6",
+                  oxanium.className
+                )}>
+                  Share your first post today clicking the + button above
+                </p>
+              </div>
+              
+              {/* Actions mockup */}
+              <div className="p-4">
+                <div className="flex gap-4 mb-4">
+                  <div className="w-6 h-6 rounded-full bg-zinc-800" />
+                  <div className="w-6 h-6 rounded-full bg-zinc-800" />
+                </div>
+                <div className="space-y-2">
+                  <div className="w-20 h-2.5 bg-zinc-800 rounded-full" />
+                  <div className="w-32 h-2.5 bg-zinc-800 rounded-full" />
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          posts.map((post) => (
+            <VideoPost key={post.id} post={post} />
+          ))
+        )}
       </div>
     </div>
   );
