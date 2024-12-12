@@ -19,11 +19,24 @@
         "destination": "/index.html"
       }
     ],
-    "redirects": [
+    "headers": [
       {
-        "source": "/__/auth/**",
-        "destination": "https://spottt-6993c.firebaseapp.com/__/auth/:splat",
-        "type": 301
+        "source": "/manifest.json",
+        "headers": [
+          {
+            "key": "Access-Control-Allow-Origin",
+            "value": "*"
+          }
+        ]
+      },
+      {
+        "source": "**/*.@(jpg|jpeg|gif|png|svg|webp|js|css|eot|otf|ttf|ttc|woff|woff2|font.css)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "max-age=31536000"
+          }
+        ]
       }
     ]
   },
