@@ -254,20 +254,36 @@ const clearMarker = (marker: google.maps.Marker | google.maps.marker.AdvancedMar
 const MapComponent = () => {
   const router = useRouter();
 
-  // 1. Group related state together at the top
+  // 1. Context hooks
+  const { user, isAdmin } = useAuth();
+
+  // 2. State hooks
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [userLocation, setUserLocation] = useState<google.maps.LatLngLiteral | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  // ... other state declarations
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSpotOverlay, setShowSpotOverlay] = useState(true);
+  const [showNearbyOnly, setShowNearbyOnly] = useState(false);
 
-  // 2. Move the onboarding effect up with other initialization effects
+  // 3. Ref hooks
+  const mapInstanceRef = useRef<google.maps.Map | null>(null);
+  const markersMapRef = useRef<Map<string, google.maps.Marker | google.maps.marker.AdvancedMarkerElement>>(new Map());
+  const userLocationMarkerRef = useRef<google.maps.Marker | google.maps.marker.AdvancedMarkerElement | null>(null);
+
+  // 4. Load script hook - MOVED UP before the initialization effect
+  const { isLoaded, loadMarker } = useGoogleMaps();
+
+  // 5. Initialization effect
   useEffect(() => {
-    const initializeApp = async () => {
+    const initializeMap = async () => {
       // Check onboarding status
       const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
       if (!hasSeenOnboarding) {
         setShowOnboarding(true);
       }
+
+      // Only proceed with location if map is loaded
+      if (!isLoaded) return;
 
       // Initialize location
       if (!("geolocation" in navigator)) {
@@ -303,8 +319,8 @@ const MapComponent = () => {
       }
     };
 
-    initializeApp();
-  }, []); // Run once on mount
+    initializeMap();
+  }, [isLoaded]); // Only run when isLoaded changes
 
   const handleOnboardingClose = (dontShowAgain: boolean) => {
     if (dontShowAgain) {
@@ -377,22 +393,8 @@ const MapComponent = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredMarkers, setFilteredMarkers] = useState<MarkerData[]>([]);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [showSpotOverlay, setShowSpotOverlay] = useState(true);
-  const [showNearbyOnly, setShowNearbyOnly] = useState(false);
 
-  // 2. Context hooks
-  const { user, isAdmin } = useAuth();
-
-  // 3. Ref hooks
-  const mapInstanceRef = useRef<google.maps.Map | null>(null);
-  const markersMapRef = useRef<Map<string, google.maps.Marker | google.maps.marker.AdvancedMarkerElement>>(new Map());
-  const userLocationMarkerRef = useRef<google.maps.Marker | google.maps.marker.AdvancedMarkerElement | null>(null);
-
-  // 4. Load script hook
-  const { isLoaded, loadMarker } = useGoogleMaps();
-
-  // 5. Memo hooks
+  // 6. Memo hooks
   const center = useMemo(() => 
     userLocation || { lat: 51.5074, lng: -0.1278 }, // Fallback to London if no user location
   [userLocation]);
