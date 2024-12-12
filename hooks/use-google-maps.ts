@@ -24,6 +24,11 @@ export function useGoogleMaps() {
     mapIds: mapId ? [mapId] : undefined
   });
 
+  const loadMarker = async () => {
+    if (!window.google) return null;
+    return await google.maps.importLibrary("marker") as google.maps.MarkerLibrary;
+  };
+
   if (loadError) {
     console.error('Google Maps load error:', {
       error: loadError,
@@ -36,5 +41,5 @@ export function useGoogleMaps() {
     console.log('Google Maps loaded successfully');
   }
 
-  return { isLoaded, loadError };
+  return { isLoaded, loadError, loadMarker };
 } 
