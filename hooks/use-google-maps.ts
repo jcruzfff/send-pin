@@ -1,15 +1,14 @@
 import { useLoadScript } from '@react-google-maps/api';
 
-type Libraries = ("places" | "marker" | "geometry" | "drawing")[];
+type Libraries = ("places" | "geometry" | "drawing" | "visualization" | "marker")[];
 
-const libraries: Libraries = ["places", "marker", "geometry", "drawing"];
+const libraries: Libraries = ["places", "marker"];
 
 export function useGoogleMaps() {
   const { isLoaded, loadError } = useLoadScript({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
-    libraries: libraries as any,
-    version: "weekly",
-    mapIds: [process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID!],
+    libraries: libraries,
+    mapIds: [process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID!]
   });
 
   const loadMarker = async () => {
