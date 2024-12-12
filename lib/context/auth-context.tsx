@@ -77,8 +77,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setIsAdmin(false);
         }
       } else {
-        console.log('Redirecting to login page...');
-        router.replace('/login');
+        // Check if we're on the reset password page with an oobCode
+        const pathname = window.location.pathname;
+        const searchParams = new URLSearchParams(window.location.search);
+        const hasOobCode = searchParams.has('oobCode');
+        const isResetPasswordPage = pathname === '/reset-password';
+
+        console.log('Auth state - not logged in:', {
+          pathname,
+          hasOobCode,
+          isResetPasswordPage
+        });
+
+        // Only redirect if we're not on the reset password page with an oobCode
+        if (!isResetPasswordPage || (isResetPasswordPage && !hasOobCode)) {
+          console.log('Redirecting to login page...');
+          router.replace('/login');
+        }
       }
       setLoading(false);
     });

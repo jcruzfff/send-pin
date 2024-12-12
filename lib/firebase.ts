@@ -1,11 +1,11 @@
 import { initializeApp, getApp, getApps } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, connectAuthEmulator } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: 'sendpin.app',
+  authDomain: 'spottt-6993c.firebaseapp.com',
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
@@ -19,8 +19,7 @@ const auth = getAuth(app);
 // The action code settings should only be used when sending the email
 // not in the initial configuration
 export const actionCodeSettings = {
-  url: 'https://sendpin.app/reset-password',
-  handleCodeInApp: true,
+  url: 'https://sendpin.app/reset-password'
 };
 
 const db = getFirestore(app);

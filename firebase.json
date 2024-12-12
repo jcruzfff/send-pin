@@ -21,8 +21,8 @@
     ],
     "redirects": [
       {
-        "source": "/__/auth/action",
-        "destination": "/reset-password",
+        "source": "/__/auth/**",
+        "destination": "https://spottt-6993c.firebaseapp.com/__/auth/:splat",
         "type": 301
       }
     ]

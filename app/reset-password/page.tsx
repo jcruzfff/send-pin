@@ -17,6 +17,12 @@ export default function ResetPasswordPage() {
   const searchParams = useSearchParams();
   const oobCode = searchParams.get('oobCode');
   
+  console.log('Reset Password Page - URL Parameters:', {
+    oobCode,
+    mode: searchParams.get('mode'),
+    fullUrl: window.location.href
+  });
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
