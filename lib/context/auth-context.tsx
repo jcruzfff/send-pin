@@ -8,9 +8,11 @@ import {
   onAuthStateChanged,
   User,
   createUserWithEmailAndPassword,
-  signInWithEmailAndPassword
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+  confirmPasswordReset
 } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase';
+import { auth, db, actionCodeSettings } from '@/lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
@@ -23,6 +25,8 @@ interface AuthContextType {
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  sendPasswordReset: (email: string) => Promise<void>;
+  confirmPasswordReset: (oobCode: string, newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -165,6 +169,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const sendPasswordReset = async (email: string) => {
+    try {
+      console.log('Sending password reset email...');
+      await sendPasswordResetEmail(auth, email, actionCodeSettings);
+      console.log('Password reset email sent successfully');
+    } catch (error: any) {
+      console.error('Password reset error:', error);
+      throw new Error(error.message || 'Failed to send password reset email');
+    }
+  };
+
+  const handlePasswordReset = async (oobCode: string, newPassword: string) => {
+    try {
+      console.log('Confirming password reset...');
+      await confirmPasswordReset(auth, oobCode, newPassword);
+      console.log('Password reset successful');
+    } catch (error: any) {
+      console.error('Password reset confirmation error:', error);
+      throw new Error(error.message || 'Failed to reset password');
+    }
+  };
+
   if (loading) {
     return <div className="min-h-screen bg-black flex items-center justify-center">
       <div className="text-white">Loading...</div>
@@ -181,6 +207,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signInWithEmail,
       signUpWithEmail,
       signOut,
+      sendPasswordReset,
+      confirmPasswordReset: handlePasswordReset,
     }}>
       {children}
     </AuthContext.Provider>

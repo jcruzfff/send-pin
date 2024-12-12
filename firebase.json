@@ -6,6 +6,27 @@
   "storage": {
     "rules": "storage.rules"
   },
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
+    "redirects": [
+      {
+        "source": "/__/auth/action",
+        "destination": "/reset-password",
+        "type": 301
+      }
+    ]
+  },
   "functions": [
     {
       "source": "functions",
