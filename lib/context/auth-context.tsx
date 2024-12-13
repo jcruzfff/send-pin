@@ -53,6 +53,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           displayName: user.displayName
         });
         
+        // Set admin status based on UID
+        const isUserAdmin = user.uid === "1DM4FHPG7sQroBhD2wOIf19pO482";
+        console.log('Admin status:', isUserAdmin);
+        setIsAdmin(isUserAdmin);
+        
         try {
           const userDocRef = doc(db, 'users', user.uid);
           const userDoc = await getDoc(userDocRef);
@@ -65,19 +70,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               photoURL: user.photoURL,
               createdAt: new Date().toISOString(),
               lastLogin: new Date().toISOString(),
-              isAdmin: false,
+              isAdmin: isUserAdmin,
             });
             localStorage.setItem('isFirstLogin', 'true');
-            setIsAdmin(false);
           } else {
-            console.log('User document exists');
-            setIsAdmin(userDoc.data()?.isAdmin || false);
+            console.log('User document exists, updating lastLogin');
+            await setDoc(userDocRef, {
+              lastLogin: new Date().toISOString(),
+            }, { merge: true });
           }
         } catch (err) {
           console.error('Error checking user document:', err);
-          setIsAdmin(false);
         }
       } else {
+        setIsAdmin(false);
         // Check if we're on the reset password page with an oobCode
         const pathname = window.location.pathname;
         const searchParams = new URLSearchParams(window.location.search);
@@ -115,6 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       
       const result = await signInWithPopup(auth, provider);
+      const isUserAdmin = result.user.uid === "AV3EphGFCDOsRRSL09ZHvTj2oaj2";
       
       console.log('Google sign in successful, updating user document...');
       await setDoc(doc(db, 'users', result.user.uid), {
@@ -122,7 +129,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         name: result.user.displayName,
         photoURL: result.user.photoURL,
         lastLogin: new Date().toISOString(),
+        isAdmin: isUserAdmin,
       }, { merge: true });
+
+      // Update admin status
+      setIsAdmin(isUserAdmin);
 
       console.log('Redirecting to home page...');
       router.replace('/');
@@ -136,12 +147,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('Starting email sign in...');
       const result = await signInWithEmailAndPassword(auth, email, password);
+      const isUserAdmin = result.user.uid === "AV3EphGFCDOsRRSL09ZHvTj2oaj2";
       
       console.log('Email sign in successful, updating user document...');
       await setDoc(doc(db, 'users', result.user.uid), {
         email: result.user.email,
         lastLogin: new Date().toISOString(),
+        isAdmin: isUserAdmin,
       }, { merge: true });
+
+      // Update admin status
+      setIsAdmin(isUserAdmin);
 
       console.log('Redirecting to home page...');
       router.replace('/');

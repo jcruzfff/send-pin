@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/context/auth-context';
 import { collection, query, where, getDocs } from 'firebase/firestore';
+import { FirebaseError } from 'firebase/app';
 import { db } from '@/lib/firebase';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { SlideMenu } from '@/components/ui/slide-menu';
@@ -44,20 +45,52 @@ export function ProfileHeader({ showTitle = true, isHome = false }: ProfileHeade
   // Load pending submissions count
   useEffect(() => {
     const loadPendingCount = async () => {
-      if (!isAdmin) return;
+      console.log('Checking admin status:', {
+        isAdmin,
+        user: user ? {
+          uid: user.uid,
+          email: user.email
+        } : null
+      });
+
+      if (!isAdmin) {
+        console.log('User is not admin, skipping pending count');
+        return;
+      }
       
       try {
+        console.log('Attempting to query spotSubmissions collection...');
         const submissionsRef = collection(db, 'spotSubmissions');
         const q = query(submissionsRef, where('status', '==', 'pending'));
+        
+        console.log('Executing query...');
         const snapshot = await getDocs(q);
+        console.log('Query result:', {
+          size: snapshot.size,
+          empty: snapshot.empty,
+          docs: snapshot.docs.map(doc => ({
+            id: doc.id,
+            exists: doc.exists(),
+            status: doc.data()?.status
+          }))
+        });
+        
         setPendingCount(snapshot.size);
       } catch (error) {
-        console.error('Error loading pending count:', error);
+        if (error instanceof FirebaseError) {
+          console.error('Error loading pending count:', error);
+          console.error('Error details:', {
+            code: error.code,
+            message: error.message
+          });
+        } else {
+          console.error('Unknown error:', error);
+        }
       }
     };
 
     loadPendingCount();
-  }, [isAdmin]);
+  }, [isAdmin, user]);
 
   return (
     <>

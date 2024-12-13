@@ -1,16 +1,16 @@
-const admin = require('firebase-admin');
+import * as firebaseAdmin from 'firebase-admin';
 require('dotenv').config({ path: '.env.local' });
 
 // Initialize Firebase Admin
-const app = admin.initializeApp({
-  credential: admin.credential.cert({
+const app = firebaseAdmin.initializeApp({
+  credential: firebaseAdmin.credential.cert({
     projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
     clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
-    privateKey: process.env.FIREBASE_ADMIN_PRIVATE_KEY
+    privateKey: process.env.NEXT_PUBLIC_FIREBASE_PRIVATE_KEY
   })
 });
 
-const db = admin.firestore();
+const db = firebaseAdmin.firestore();
 
 async function makeAdmin(userId: string) {
   try {
