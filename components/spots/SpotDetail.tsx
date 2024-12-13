@@ -274,9 +274,10 @@ export function SpotDetail({
       const userRef = doc(db, 'users', user.uid);
       
       if (isFavorited) {
-        // Remove from favorites
+        // Remove from favorites and favoriteSpots
         await updateDoc(userRef, {
-          favorites: arrayRemove(loadedSpot.id)
+          favorites: arrayRemove(loadedSpot.id),
+          [`favoriteSpots.${loadedSpot.id}`]: arrayRemove()
         });
         setIsFavorited(false);
       } else {
@@ -284,9 +285,9 @@ export function SpotDetail({
         const spotData = {
           ...loadedSpot,
           // Ensure these fields are included
-          difficulty: loadedSpot.difficulty,
-          material: loadedSpot.material,
-          description: loadedSpot.description,
+          difficulty: loadedSpot.difficulty || 'Not specified',
+          material: loadedSpot.material || 'Not specified',
+          description: loadedSpot.description || 'No description available',
           // Add any additional metadata
           favoritedAt: Date.now()
         };

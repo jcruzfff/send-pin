@@ -5,8 +5,12 @@ import { Metadata } from 'next'
 import { Viewport } from 'next'
 import { AuthProvider } from '@/lib/context/auth-context'
 import ClientLayout from '@/components/ClientLayout'
+import PullToRefresh from '@/components/PullToRefresh'
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ 
+  subsets: ['latin'],
+  display: 'swap'  // Add display swap for better font loading
+})
 
 export const viewport: Viewport = {
   themeColor: '#000000',
@@ -53,7 +57,6 @@ export const metadata: Metadata = {
     'msapplication-navbutton-color': '#000000',
     'apple-mobile-web-app-status-bar-style': 'black-translucent',
     'msapplication-starturl': '/',
-    'preload-strategy': 'preload'
   }
 }
 
@@ -63,7 +66,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" type="image/svg+xml" href="/icons/icon-192x192.svg" />
@@ -75,7 +78,9 @@ export default function RootLayout({
       <body className={inter.className}>
         <AuthProvider>
           <ClientLayout>
-            {children}
+            <PullToRefresh>
+              {children}
+            </PullToRefresh>
           </ClientLayout>
         </AuthProvider>
       </body>

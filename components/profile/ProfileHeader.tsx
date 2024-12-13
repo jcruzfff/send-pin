@@ -30,6 +30,17 @@ export function ProfileHeader({ showTitle = true, isHome = false }: ProfileHeade
   const [showNotifications, setShowNotifications] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
 
+  // Debug logging
+  useEffect(() => {
+    if (user) {
+      console.log('Current user info:', {
+        uid: user.uid,
+        email: user.email,
+        isAdmin: isAdmin
+      });
+    }
+  }, [user, isAdmin]);
+
   // Load pending submissions count
   useEffect(() => {
     const loadPendingCount = async () => {

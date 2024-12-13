@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/context/auth-context';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Loader2, MapPin, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import Link from 'next/link';
@@ -25,6 +25,10 @@ interface FavoriteSpot {
   imageUrl?: string;
   thumbnailUrl?: string;
   createdAt: number;
+  position: {
+    lat: number;
+    lng: number;
+  };
 }
 
 export default function FavoritesPage() {
@@ -44,29 +48,41 @@ export default function FavoritesPage() {
         const favoriteIds = userData?.favorites || [];
         console.log('Found favorite IDs:', favoriteIds);
 
+        // First, try loading from favoriteSpots map if it exists
         const favoriteSpots = await Promise.all(
           favoriteIds.map(async (spotId: string) => {
             console.log('Loading spot:', spotId);
             
-            // First try loading from user's spots data
-            if (userData?.spots?.[spotId]) {
-              console.log('Found spot in user data:', spotId);
-              return {
+            // First check if the spot data is stored in favoriteSpots map
+            if (userData?.favoriteSpots?.[spotId]) {
+              console.log('Found spot in favoriteSpots map:', spotId);
+              const data = userData.favoriteSpots[spotId];
+              return { 
                 id: spotId,
-                ...userData.spots[spotId]
+                ...data,
+                title: data.title || 'Untitled Spot',
+                spotType: data.spotType || 'uncategorized',
+                imageUrl: data.imageUrl,
+                thumbnailUrl: data.thumbnailUrl,
+                createdAt: data.createdAt,
+                position: {
+                  lat: data.position.lat,
+                  lng: data.position.lng,
+                },
               } as FavoriteSpot;
             }
-
-            // If not in user data, try global spots
-            let spotDoc = await getDoc(doc(db, 'globalSpots', spotId));
             
-            // If not found in global, try personal spots
+            // If not in map, try loading from personal spots
+            let spotDoc = await getDoc(doc(db, `users/${user.uid}/spots`, spotId));
+            
+            // If not found in personal spots, try global spots
             if (!spotDoc.exists()) {
-              spotDoc = await getDoc(doc(db, `users/${user.uid}/spots`, spotId));
+              console.log('Not found in personal spots, trying global spots');
+              spotDoc = await getDoc(doc(db, 'globalSpots', spotId));
             }
 
             if (spotDoc.exists()) {
-              console.log('Found spot in collections:', spotId);
+              console.log('Found spot:', spotId);
               const data = spotDoc.data();
               return { 
                 id: spotDoc.id, 
@@ -75,7 +91,11 @@ export default function FavoritesPage() {
                 spotType: data.spotType || 'uncategorized',
                 imageUrl: data.imageUrl,
                 thumbnailUrl: data.thumbnailUrl,
-                createdAt: data.createdAt
+                createdAt: data.createdAt,
+                position: {
+                  lat: data.position.lat,
+                  lng: data.position.lng,
+                },
               } as FavoriteSpot;
             }
 
@@ -87,6 +107,14 @@ export default function FavoritesPage() {
         const validSpots = favoriteSpots.filter((spot): spot is FavoriteSpot => spot !== null);
         console.log('Loaded favorite spots:', validSpots);
         setFavorites(validSpots);
+
+        // Clean up any invalid favorites
+        if (validSpots.length !== favoriteIds.length) {
+          const validIds = validSpots.map(spot => spot.id);
+          await updateDoc(doc(db, 'users', user.uid), {
+            favorites: validIds
+          });
+        }
       } catch (error) {
         console.error('Error loading favorites:', error);
       } finally {
@@ -109,16 +137,15 @@ export default function FavoritesPage() {
     <div className="min-h-screen bg-black">
       {/* Header */}
       <div className="sticky top-0 z-50 bg-black">
-        <div className="px-[18px] py-4 flex items-center gap-3">
+        <div className="px-[18px] py-4 flex items-center">
           <button
             onClick={() => router.push('/profile')}
-            className="text-white"
+            className="absolute left-[18px] text-white"
           >
             <ChevronLeft className="h-6 w-6" />
           </button>
-          <div className="m-auto items-center justify-center ">
-        
-            <h1 className="text-lg font-medium">Favorites</h1>
+          <div className="flex-1 text-center">
+            <h1 className={cn("text-lg font-medium text-white", oxanium.className)}>Favorites</h1>
           </div>
         </div>
 
@@ -151,44 +178,73 @@ export default function FavoritesPage() {
               </p>
             </div>
           ) : (
-            favorites.map((spot) => (
-              <Link
-                key={spot.id}
-                href={`/spots/${spot.id}?from=favorites`}
-                className="flex items-center gap-4 p-4 bg-gradient-to-b from-[#1F1F1E] to-[#0E0E0E] 
-                          hover:from-[#2F2F2E] hover:to-[#1E1E1E] transition-all cursor-pointer mt-3 first:mt-0
-                          border border-[#171717]"
-                style={{ borderRadius: '20px' }}
-              >
-                <div className="w-16 h-16 bg-zinc-800 overflow-hidden flex-shrink-0" 
-                     style={{ borderRadius: '10px' }}
+            <div className="space-y-3">
+              {favorites.map((spot) => (
+                <div
+                  key={spot.id}
+                  className="relative h-[194px] bg-gradient-to-b from-[#1F1F1E] to-[#0E0E0E] hover:from-[#2F2F2E] hover:to-[#1E1E1E] transition-all cursor-pointer"
+                  style={{ borderRadius: '20px' }}
+                  onClick={() => router.push(`/spots/${spot.id}?from=favorites`)}
                 >
-                  {spot.imageUrl ? (
-                    <Image
-                      src={spot.thumbnailUrl || spot.imageUrl}
-                      alt={spot.title}
-                      className="w-full h-full object-cover"
-                      width={64}
-                      height={64}
-                      priority={false}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <MapPin className="w-6 h-6 text-zinc-500" />
-                    </div>
-                  )}
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <h2 className={cn("font-medium text-white truncate", oxanium.className)}>{spot.title}</h2>
-                  <p className="text-sm text-zinc-400">
-                    {SPOT_CATEGORIES.find(cat => cat.id === spot.spotType)?.label || 'Uncategorized'}
-                  </p>
-                </div>
+                  {/* Spot Image */}
+                  <div 
+                    className="absolute top-6 right-3 w-[98px] h-[98px] bg-zinc-800 overflow-hidden"
+                    style={{ borderRadius: '10px' }}
+                  >
+                    {spot.imageUrl ? (
+                      <Image
+                        src={spot.thumbnailUrl || spot.imageUrl}
+                        alt={spot.title}
+                        className="w-full h-full object-cover"
+                        width={98}
+                        height={98}
+                        priority={false}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <MapPin className="w-5 h-5 text-zinc-500" />
+                      </div>
+                    )}
+                  </div>
 
-                <ChevronRight className="w-5 h-5 text-zinc-400" />
-              </Link>
-            ))
+                  {/* Spot Details */}
+                  <div className="absolute top-8 left-6 flex flex-col">
+                    <h3 className="text-[14px] font-medium text-white font-[Oxanium]">{spot.title}</h3>
+                    <div className="mt-1 space-y-2">
+                      <p className="text-[12px] text-zinc-400">
+                        {SPOT_CATEGORIES.find(cat => cat.id === spot.spotType)?.label || 'Uncategorized'}
+                      </p>
+                      <p className="text-[12px] text-zinc-400 max-w-[200px]">
+                        Description of the spot or something can go here
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Bottom Section with Distance and Directions */}
+                  <div className="absolute bottom-0 left-0 right-0 h-[56px] border-t border-zinc-800 flex items-center justify-between pl-6 pr-3">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-zinc-400" />
+                      <span className="text-[12px] text-zinc-400">
+                        Added {new Date(spot.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <button 
+                      className="h-6 px-4 rounded-[6px] bg-white/10 hover:bg-white/20 transition-colors flex items-center gap-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.open(
+                          `https://www.google.com/maps/dir/?api=1&destination=${spot.position?.lat},${spot.position?.lng}`,
+                          '_blank'
+                        );
+                      }}
+                    >
+                      <span className="text-[12px] text-white font-[Oxanium]">Directions</span>
+                      <ChevronRight className="w-3 h-3 text-white" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>

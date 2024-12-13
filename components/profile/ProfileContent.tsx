@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { PlusCircle, Trophy, UserPlus, Flag, ChevronRight, Search, MapPin, ArrowLeft, Heart } from 'lucide-react';
+import { PlusCircle, Trophy, UserPlus, Flag, ChevronRight, Search, MapPin, ChevronLeft, Heart } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/context/auth-context';
 import { collection, getDocs, query, orderBy, limit, doc, getDoc } from 'firebase/firestore';
@@ -366,11 +366,11 @@ export default function ProfileContent() {
             <div className="flex items-center h-full px-1">
               <button
                 onClick={spotDetailView.isActive ? handleBackFromSpotDetail : handleBackToCategories}
-                className="inline-flex items-center text-zinc-400 hover:text-white transition-colors"
+                className="inline-flex items-center text-zinc-400 hover:text-white transition-colors absolute left-4"
               >
-                <ArrowLeft className="h-5 w-5" />
+                <ChevronLeft className="h-5 w-5" />
               </button>
-              <h2 className={cn("text-sm font-medium flex-1 text-center mr-5", oxanium.className)}>
+              <h2 className={cn("text-sm font-medium text-white text-center w-full", oxanium.className)}>
                 {spotDetailView.isActive 
                   ? spotDetailView.spot?.title 
                   : SPOT_CATEGORIES.find(cat => cat.id === categoryView.categoryId)?.label}
@@ -519,52 +519,74 @@ export default function ProfileContent() {
                           searchResults
                             .filter(spot => spot.spotType === categoryView.categoryId)
                             .map((spot) => (
-                              <button
+                              <div
                                 key={spot.id}
                                 onClick={() => handleSpotClick(spot)}
-                                className="w-full flex items-center gap-4 p-4 bg-gradient-to-b from-[#1F1F1E] to-[#0E0E0E] 
-                                          hover:from-[#2F2F2E] hover:to-[#1E1E1E] transition-all cursor-pointer mt-3 first:mt-0
-                                          border border-[#171717]"
+                                className="relative h-[194px] bg-gradient-to-b from-[#1F1F1E] to-[#0E0E0E] hover:from-[#2F2F2E] hover:to-[#1E1E1E] transition-all cursor-pointer"
                                 style={{ borderRadius: '20px' }}
                               >
-                                <div className="w-12 h-12 bg-zinc-800 overflow-hidden flex-shrink-0" 
-                                     style={{ borderRadius: '10px' }}
+                                {/* Spot Image */}
+                                <div 
+                                  className="absolute top-6 right-3 w-[98px] h-[98px] bg-zinc-800 overflow-hidden"
+                                  style={{ borderRadius: '10px' }}
                                 >
                                   {spot.imageUrl ? (
                                     <img
-                                      src={spot.thumbnailUrl || `${spot.imageUrl}?w=128&h=128&q=50`}
+                                      src={spot.thumbnailUrl || `${spot.imageUrl}?w=98&h=98&q=75`}
                                       alt={spot.title}
                                       className="w-full h-full object-cover"
                                       loading="lazy"
                                       decoding="async"
-                                      width={48}
-                                      height={48}
+                                      width={98}
+                                      height={98}
                                     />
                                   ) : (
                                     <div className="w-full h-full flex items-center justify-center">
-                                      <MapPin className="w-4 h-4 text-zinc-500" />
+                                      <MapPin className="w-5 h-5 text-[#B9B9B9]" />
                                     </div>
                                   )}
                                 </div>
 
-                                <div className="flex-1 text-left min-w-0">
-                                  <h3 className={cn("font-medium text-white truncate", oxanium.className)}>{spot.title}</h3>
-                                  <div className="space-y-0.5">
-                                    <p className="text-sm text-zinc-400">
+                                {/* Spot Details */}
+                                <div className="absolute top-8 left-6 flex flex-col">
+                                  <h3 className="text-[14px] font-medium text-white font-[Oxanium]">{spot.title}</h3>
+                                  <div className="mt-1 space-y-2">
+                                    <p className="text-[12px] text-[#B9B9B9]">
                                       {SPOT_CATEGORIES.find(cat => cat.id === spot.spotType)?.label || 'Uncategorized'}
                                     </p>
-                                    {userLocation && (
-                                      <p className="text-sm text-zinc-500">
-                                        {calculateDistanceInMeters(userLocation, spot.position) < 1000
-                                          ? `${Math.round(calculateDistanceInMeters(userLocation, spot.position))}m away`
-                                          : `${(calculateDistanceInMeters(userLocation, spot.position) / 1000).toFixed(1)}km away`}
-                                      </p>
-                                    )}
+                                    <p className="text-[12px] text-[#B9B9B9] max-w-[200px]">
+                                      {spot.description || 'Description of the spot or something can go here'}
+                                    </p>
                                   </div>
                                 </div>
 
-                                <ChevronRight className="w-5 h-5 text-zinc-400" />
-                              </button>
+                                {/* Bottom Section with Distance and Directions */}
+                                <div className="absolute bottom-0 left-0 right-0 h-[56px] border-t border-zinc-800 flex items-center justify-between pl-6 pr-3">
+                                  <div className="flex items-center gap-2">
+                                    <MapPin className="w-4 h-4 text-[#B9B9B9]" />
+                                    <span className="text-[12px] text-[#B9B9B9]">
+                                      {userLocation && (
+                                        calculateDistanceInMeters(userLocation, spot.position) < 1000
+                                          ? `${Math.round(calculateDistanceInMeters(userLocation, spot.position))}m away`
+                                          : `${(calculateDistanceInMeters(userLocation, spot.position) / 1000).toFixed(1)}km away`
+                                      )}
+                                    </span>
+                                  </div>
+                                  <button 
+                                    className="h-6 px-4 rounded-[6px] bg-white/10 hover:bg-white/20 transition-colors flex items-center gap-1"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      window.open(
+                                        `https://www.google.com/maps/dir/?api=1&destination=${spot.position.lat},${spot.position.lng}`,
+                                        '_blank'
+                                      );
+                                    }}
+                                  >
+                                    <span className="text-[12px] text-[#B9B9B9] font-[Oxanium]">Directions</span>
+                                    <ChevronRight className="w-3 h-3 text-[#B9B9B9]" />
+                                  </button>
+                                </div>
+                              </div>
                             ))
                         ) : (
                           // No results found
@@ -575,52 +597,74 @@ export default function ProfileContent() {
                     ) : (
                       // Show all category spots when not searching
                       (spotsByCategory[categoryView.categoryId!] || []).map((spot) => (
-                        <button
+                        <div
                           key={spot.id}
                           onClick={() => handleSpotClick(spot)}
-                          className="w-full flex items-center gap-4 p-4 bg-gradient-to-b from-[#1F1F1E] to-[#0E0E0E] 
-                                    hover:from-[#2F2F2E] hover:to-[#1E1E1E] transition-all cursor-pointer mt-3 first:mt-0
-                                    border border-[#171717]"
+                          className="relative h-[194px] bg-gradient-to-b from-[#1F1F1E] to-[#0E0E0E] hover:from-[#2F2F2E] hover:to-[#1E1E1E] transition-all cursor-pointer"
                           style={{ borderRadius: '20px' }}
                         >
-                          <div className="w-12 h-12 bg-zinc-800 overflow-hidden flex-shrink-0" 
-                               style={{ borderRadius: '10px' }}
+                          {/* Spot Image */}
+                          <div 
+                            className="absolute top-6 right-3 w-[98px] h-[98px] bg-zinc-800 overflow-hidden"
+                            style={{ borderRadius: '10px' }}
                           >
                             {spot.imageUrl ? (
                               <img
-                                src={spot.thumbnailUrl || `${spot.imageUrl}?w=128&h=128&q=50`}
+                                src={spot.thumbnailUrl || `${spot.imageUrl}?w=98&h=98&q=75`}
                                 alt={spot.title}
                                 className="w-full h-full object-cover"
                                 loading="lazy"
                                 decoding="async"
-                                width={48}
-                                height={48}
+                                width={98}
+                                height={98}
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center">
-                                <MapPin className="w-4 h-4 text-zinc-500" />
+                                <MapPin className="w-5 h-5 text-[#B9B9B9]" />
                               </div>
                             )}
                           </div>
 
-                          <div className="flex-1 text-left min-w-0">
-                            <h3 className={cn("font-medium text-white truncate", oxanium.className)}>{spot.title}</h3>
-                            <div className="space-y-0.5">
-                              <p className="text-sm text-zinc-400">
+                          {/* Spot Details */}
+                          <div className="absolute top-8 left-6 flex flex-col">
+                            <h3 className="text-[14px] font-medium text-white font-[Oxanium]">{spot.title}</h3>
+                            <div className="mt-1 space-y-2">
+                              <p className="text-[12px] text-[#B9B9B9]">
                                 {SPOT_CATEGORIES.find(cat => cat.id === spot.spotType)?.label || 'Uncategorized'}
                               </p>
-                              {userLocation && (
-                                <p className="text-sm text-zinc-500">
-                                  {calculateDistanceInMeters(userLocation, spot.position) < 1000
-                                    ? `${Math.round(calculateDistanceInMeters(userLocation, spot.position))}m away`
-                                    : `${(calculateDistanceInMeters(userLocation, spot.position) / 1000).toFixed(1)}km away`}
-                                  </p>
-                              )}
+                              <p className="text-[12px] text-[#B9B9B9] max-w-[200px]">
+                                {spot.description || 'Description of the spot or something can go here'}
+                              </p>
                             </div>
                           </div>
 
-                          <ChevronRight className="w-5 h-5 text-zinc-400" />
-                        </button>
+                          {/* Bottom Section with Distance and Directions */}
+                          <div className="absolute bottom-0 left-0 right-0 h-[56px] border-t border-zinc-800 flex items-center justify-between pl-6 pr-3">
+                            <div className="flex items-center gap-2">
+                              <MapPin className="w-4 h-4 text-[#B9B9B9]" />
+                              <span className="text-[12px] text-[#B9B9B9]">
+                                {userLocation && (
+                                  calculateDistanceInMeters(userLocation, spot.position) < 1000
+                                    ? `${Math.round(calculateDistanceInMeters(userLocation, spot.position))}m away`
+                                    : `${(calculateDistanceInMeters(userLocation, spot.position) / 1000).toFixed(1)}km away`
+                                )}
+                              </span>
+                            </div>
+                            <button 
+                              className="h-6 px-4 rounded-[6px] bg-white/10 hover:bg-white/20 transition-colors flex items-center gap-1"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.open(
+                                  `https://www.google.com/maps/dir/?api=1&destination=${spot.position.lat},${spot.position.lng}`,
+                                  '_blank'
+                                );
+                              }}
+                            >
+                              <span className="text-[12px] text-[#B9B9B9] font-[Oxanium]">Directions</span>
+                              <ChevronRight className="w-3 h-3 text-[#B9B9B9]" />
+                            </button>
+                          </div>
+                        </div>
                       ))
                     )}
                   </div>

@@ -15,6 +15,7 @@ import {
 import { auth, db, actionCodeSettings } from '@/lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
+import { SplashScreen } from '@/components/ui/splash-screen';
 
 interface AuthContextType {
   user: User | null;
@@ -207,9 +208,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   if (loading) {
-    return <div className="min-h-screen bg-black flex items-center justify-center">
-      <div className="text-white">Loading...</div>
-    </div>;
+    return <SplashScreen />;
   }
 
   return (

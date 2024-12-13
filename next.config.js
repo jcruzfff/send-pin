@@ -11,6 +11,10 @@ const nextConfig = {
   images: {
     domains: ['firebasestorage.googleapis.com', 'lh3.googleusercontent.com'],
   },
+  experimental: {
+    optimizeCss: true,
+    optimizePackageImports: ['@/components']
+  },
   async headers() {
     return [
       {

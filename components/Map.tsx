@@ -190,7 +190,7 @@ const SpotCategories = ({ activeCategory, onCategoryClick, className }: {
                 "flex-none px-4 py-2 rounded-full text-sm font-medium transition-colors border font-[Oxanium]",
                 activeCategory === category.id
                   ? "bg-white text-black border-transparent"
-                  : "bg-[#1D1E1F] text-white hover:bg-[#2D2E2F] border-white/30"
+                  : "bg-[#1D1E1F] text-white hover:bg-[#2D2E2F] border-white/10"
               )}
             >
               {category.label}
@@ -282,6 +282,9 @@ const MapComponent = () => {
         setShowOnboarding(true);
       }
 
+      // Load spots immediately
+      loadSpots();
+
       // Only proceed with location if map is loaded
       if (!isLoaded) return;
 
@@ -338,16 +341,11 @@ const MapComponent = () => {
     
     div.innerHTML = `
       <div class="relative">
-        <div class="absolute -inset-4 rounded-full ${
-          markerData.isGlobal 
-            ? 'bg-primary/20' 
-            : 'bg-secondary/20'
-        }"></div>
         <div class="relative h-4 w-4 rounded-full ${
-          markerData.isGlobal 
-            ? 'bg-primary border-2 border-white' 
-            : 'bg-secondary border-2 border-white'
-        } shadow-lg"></div>
+          markerData.status === 'published' && markerData.isGlobal 
+            ? 'bg-[#B2FF4D]' 
+            : 'bg-transparent border-2 border-[#B2FF4D]'
+        }"></div>
       </div>
     `;
     
@@ -416,7 +414,7 @@ const MapComponent = () => {
 
   // Move loadSpots before handleCategoryClick
   const loadSpots = useCallback(async () => {
-    if (!user || !mapInstanceRef.current) return;
+    if (!user) return;
     
     try {
       const spots: MarkerData[] = [];
@@ -438,7 +436,6 @@ const MapComponent = () => {
       let filteredSpots = spots;
 
       // Only filter by distance if userLocation exists AND we're in "nearby" mode
-      // You might want to add a state variable for this, like: const [showNearbyOnly, setShowNearbyOnly] = useState(false);
       if (userLocation && showNearbyOnly) {
         filteredSpots = spots.filter(spot => {
           const distance = calculateDistanceInMeters(userLocation, spot.position);
@@ -462,8 +459,17 @@ const MapComponent = () => {
 
       setMarkers(filteredSpots);
 
-      // Update markers on the map
-      if (mapInstanceRef.current) {
+    } catch (error) {
+      console.error('Error loading spots:', error);
+    }
+  }, [showGlobalSpots, showPersonalSpots, user, userLocation, maxDistance, activeCategory, searchQuery, showNearbyOnly]);
+
+  // Add a new effect for handling markers on the map
+  useEffect(() => {
+    const updateMapMarkers = async () => {
+      if (!mapInstanceRef.current) return;
+
+      try {
         // Clear existing markers
         markersMapRef.current.forEach(clearMarker);
         markersMapRef.current.clear();
@@ -473,7 +479,7 @@ const MapComponent = () => {
         if (!markerLib) return;
 
         // Add new markers
-        filteredSpots.forEach(markerData => {
+        markers.forEach(markerData => {
           const marker = new markerLib.AdvancedMarkerElement({
             map: mapInstanceRef.current,
             position: markerData.position,
@@ -489,12 +495,13 @@ const MapComponent = () => {
 
           markersMapRef.current.set(markerData.id, marker);
         });
+      } catch (error) {
+        console.error('Error updating map markers:', error);
       }
+    };
 
-    } catch (error) {
-      console.error('Error loading spots:', error);
-    }
-  }, [showGlobalSpots, showPersonalSpots, user, userLocation, maxDistance, activeCategory, searchQuery, showNearbyOnly, loadMarker]);
+    updateMapMarkers();
+  }, [markers, loadMarker]);
 
   // Then define handleCategoryClick
   const handleCategoryClick = useCallback((categoryId: string) => {
@@ -709,13 +716,12 @@ const MapComponent = () => {
             } else {
               // Fallback to regular marker
               newMarker = new google.maps.Marker({
-                map: mapInstanceRef.current,
                 position: updatedSpotData.position,
-                title: updatedSpotData.title,
+                map: mapInstanceRef.current,
                 icon: {
                   url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="12" cy="12" r="8" fill="${updatedSpotData.isGlobal ? '#a3ff12' : '#ffffff'}" stroke="white" stroke-width="2"/>
+                      <circle cx="12" cy="12" r="8" fill="${updatedSpotData.isGlobal ? '#ffffff' : 'none'}" stroke="white" stroke-width="2"/>
                     </svg>
                   `),
                   scaledSize: new google.maps.Size(24, 24),
@@ -750,7 +756,7 @@ const MapComponent = () => {
               existingMarker.setIcon({
                 url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="12" cy="12" r="8" fill="${spotData.isGlobal ? '#a3ff12' : '#ffffff'}" stroke="white" stroke-width="2"/>
+                    <circle cx="12" cy="12" r="8" fill="${spotData.isGlobal ? '#ffffff' : 'none'}" stroke="white" stroke-width="2"/>
                   </svg>
                 `),
                 scaledSize: new google.maps.Size(24, 24),
@@ -878,7 +884,7 @@ const MapComponent = () => {
 
   const getUserLocation = async () => {
     if (!("geolocation" in navigator)) {
-      console.error('❌ Geolocation not supported');
+      console.error(' Geolocation not supported');
       return;
     }
 
@@ -1059,9 +1065,9 @@ const MapComponent = () => {
                             rounded-lg bg-zinc-900 border border-zinc-800 shadow-lg z-[60]"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {searchResults.map((result) => (
+                  {searchResults.map((result, index) => (
                     <button
-                      key={result.id}
+                      key={`${result.id}-${index}`}
                       onClick={() => handleSearchResultClick(result.id)}
                       className="w-full flex items-center gap-3 p-3 hover:bg-zinc-800 transition-colors text-left"
                     >
@@ -1445,33 +1451,33 @@ const MapComponent = () => {
                     distance: calculateDistanceInMeters(userLocation, marker.position)
                   }))
                   .sort((a, b) => a.distance - b.distance)
-                  .map((marker) => (
+                  .map((marker, index) => (
                     <div
-                      key={marker.id}
-                      className="flex items-center gap-4 p-4 bg-gradient-to-b from-[#1F1F1E] to-[#0E0E0E] hover:from-[#2F2F2E] hover:to-[#1E1E1E] transition-all cursor-pointer mt-3 first:mt-0"
+                      key={`${marker.id}-${index}`}
+                      className="relative h-[194px] bg-gradient-to-b from-[#1F1F1E] to-[#0E0E0E] hover:from-[#2F2F2E] hover:to-[#1E1E1E] transition-all cursor-pointer"
                       style={{ borderRadius: '20px' }}
                       onClick={() => {
-                        // Include current search query and category in the URL
                         const params = new URLSearchParams();
                         if (searchQuery) params.set('search', searchQuery);
                         if (activeCategory) params.set('category', activeCategory);
                         params.set('view', 'list');
-                        
-                        // Add the spot data to the URL state
                         router.push(`/spots/${marker.id}?${params.toString()}`);
                       }}
                     >
                       {/* Spot Image */}
-                      <div className="w-16 h-16 bg-zinc-800 overflow-hidden flex-shrink-0" style={{ borderRadius: '10px' }}>
+                      <div 
+                        className="absolute top-6 right-3 w-[98px] h-[98px] bg-zinc-800 overflow-hidden"
+                        style={{ borderRadius: '10px' }}
+                      >
                         {marker.imageUrl ? (
                           <img
-                            src={marker.thumbnailUrl || `${marker.imageUrl}?w=128&h=128&q=50`}
+                            src={marker.thumbnailUrl || `${marker.imageUrl}?w=98&h=98&q=75`}
                             alt={marker.title}
                             className="w-full h-full object-cover"
                             loading="lazy"
                             decoding="async"
-                            width={64}
-                            height={64}
+                            width={98}
+                            height={98}
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
@@ -1481,22 +1487,42 @@ const MapComponent = () => {
                       </div>
 
                       {/* Spot Details */}
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-white truncate font-[Oxanium]">{marker.title}</h3>
-                        <div className="space-y-0.5">
-                          <p className="text-sm text-zinc-400">
+                      <div className="absolute top-8 left-6 flex flex-col">
+                        <h3 className="text-[14px] font-medium text-white font-[Oxanium]">{marker.title}</h3>
+                        <div className="mt-1 space-y-2">
+                          <p className="text-[12px] text-zinc-400">
                             {SPOT_CATEGORIES.find(cat => cat.id === marker.spotType)?.label || 'Uncategorized'}
                           </p>
-                          <p className="text-sm text-white font-[Oxanium]">
-                            {marker.distance < 1000
-                              ? `${Math.round(marker.distance)}m away`
-                              : `${(marker.distance / 1000).toFixed(1)}km away`}
+                          <p className="text-[12px] text-zinc-400 max-w-[200px]">
+                            Description of the spot or something can go here
                           </p>
                         </div>
                       </div>
 
-                      {/* Arrow */}
-                      <ChevronRight className="w-5 h-5 text-zinc-400" />
+                      {/* Bottom Section with Distance and Directions */}
+                      <div className="absolute bottom-0 left-0 right-0 h-[56px] border-t border-zinc-800 flex items-center justify-between pl-6 pr-3">
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4 text-zinc-400" />
+                          <span className="text-[12px] text-zinc-400">
+                            {marker.distance < 1000
+                              ? `${Math.round(marker.distance)}m away`
+                              : `${(marker.distance / 1000).toFixed(1)}km away`}
+                          </span>
+                        </div>
+                        <button 
+                          className="h-6 px-4 rounded-[6px] bg-white/10 hover:bg-white/20 transition-colors flex items-center gap-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(
+                              `https://www.google.com/maps/dir/?api=1&destination=${marker.position.lat},${marker.position.lng}`,
+                              '_blank'
+                            );
+                          }}
+                        >
+                          <span className="text-[12px] text-white font-[Oxanium]">Directions</span>
+                          <ChevronRight className="w-3 h-3 text-white" />
+                        </button>
+                      </div>
                     </div>
                   ))}
               </div>
