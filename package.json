@@ -27,6 +27,7 @@
     "@react-oauth/google": "^0.12.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "critters": "^0.0.25",
     "firebase": "^11.0.1",
     "lucide-react": "^0.454.0",
     "next": "15.0.1",
