@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { collection, query, orderBy, getDocs, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { SpotSubmission } from '@/types/spot-submission';
+import type { SpotSubmission, AddedByData } from '@/types/spot-submission';
 
 interface NotificationCenterProps {
   onClose: () => void;
@@ -47,16 +47,10 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
       submissionId: submission.id,
       spotId: submission.spotId,
       userId: submission.userId,
-      submitterData: submission.spotData.addedBy
+      addedBy: submission.spotData.addedBy
     });
 
     try {
-      // Ensure we have the submitter data
-      if (!submission.spotData.addedBy) {
-        console.error('Missing submitter data in spot submission');
-        return;
-      }
-
       const globalSpotData = {
         ...submission.spotData,
         status: 'published',
@@ -68,12 +62,7 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
         difficulty: submission.spotData.difficulty,
         material: submission.spotData.material,
         description: submission.spotData.description,
-        addedBy: {
-          id: submission.userId,
-          displayName: submission.spotData.addedBy.displayName,
-          username: submission.spotData.addedBy.username,
-          photoURL: submission.spotData.addedBy.photoURL
-        }
+        addedBy: submission.spotData.addedBy
       };
 
       console.log('Adding to global spots with data:', globalSpotData);
@@ -92,7 +81,7 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
         difficulty: submission.spotData.difficulty,
         material: submission.spotData.material,
         description: submission.spotData.description,
-        addedBy: globalSpotData.addedBy // Ensure addedBy is updated in user's spot as well
+        addedBy: globalSpotData.addedBy
       });
       console.log('Updated original spot with submitter info:', globalSpotData.addedBy);
 
