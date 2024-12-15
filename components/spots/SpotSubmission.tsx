@@ -16,6 +16,12 @@ interface UserSpot extends MarkerData {
   status?: 'draft' | 'submitted' | 'published' | 'rejected';
   imageUrl?: string;
   thumbnailUrl?: string;
+  addedBy?: {
+    id: string;
+    displayName: string;
+    username: string;
+    photoURL?: string;
+  };
 }
 
 interface SpotRequirements {
@@ -104,7 +110,15 @@ export function SpotSubmission({ onClose }: SpotSubmissionProps) {
       const selectedSpot = userSpots.find(spot => spot.id === selectedSpotId);
       if (!selectedSpot) return;
 
-      // Create submission document with requirements
+      // Create user data object
+      const userData = {
+        id: user.uid,
+        displayName: user.displayName || 'Anonymous',
+        username: user.email?.split('@')[0] || 'anonymous',
+        photoURL: user.photoURL || undefined
+      };
+
+      // Create submission document with requirements and user data
       const submissionRef = doc(collection(db, 'spotSubmissions'));
       const submissionData = {
         spotId: selectedSpotId,
@@ -113,22 +127,24 @@ export function SpotSubmission({ onClose }: SpotSubmissionProps) {
           ...selectedSpot,
           difficulty: requirements.difficulty,
           material: requirements.material,
-          description: requirements.description
+          description: requirements.description,
+          addedBy: userData
         },
         status: 'pending',
         submittedAt: Date.now()
       };
 
-      console.log('Submitting spot with data:', submissionData); // Debug log
+      console.log('Submitting spot with data:', submissionData);
       await setDoc(submissionRef, submissionData);
 
-      // Update spot status
+      // Update spot status and add user data in user's spots collection
       const spotRef = doc(db, `users/${user.uid}/spots`, selectedSpotId);
       await updateDoc(spotRef, {
         status: 'submitted',
         difficulty: requirements.difficulty,
         material: requirements.material,
-        description: requirements.description
+        description: requirements.description,
+        addedBy: userData
       });
 
       onClose();

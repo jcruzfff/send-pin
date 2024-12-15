@@ -32,6 +32,14 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function generateUsername(email: string, displayName: string | null): string {
+  if (displayName) {
+    return displayName.toLowerCase().replace(/\s+/g, '_');
+  }
+  
+  return email.split('@')[0].toLowerCase();
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -53,28 +61,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           displayName: user.displayName
         });
         
-        // Set admin status based on UID
-        const isUserAdmin = user.uid === "1DM4FHPG7sQroBhD2wOIf19pO482";
-        console.log('Admin status:', isUserAdmin);
-        setIsAdmin(isUserAdmin);
-        
         try {
           const userDocRef = doc(db, 'users', user.uid);
           const userDoc = await getDoc(userDocRef);
           
           if (!userDoc.exists()) {
             console.log('Creating new user document - first time user');
+            const username = generateUsername(user.email!, user.displayName);
             await setDoc(userDocRef, {
               email: user.email,
-              name: user.displayName,
-              photoURL: user.photoURL,
+              username: username,
+              displayName: user.displayName || username,
+              photoURL: user.photoURL || null,
               createdAt: new Date().toISOString(),
               lastLogin: new Date().toISOString(),
-              isAdmin: isUserAdmin,
+              isAdmin: user.email === 'hello@sendpin.app',
             });
             localStorage.setItem('isFirstLogin', 'true');
           } else {
             console.log('User document exists, updating lastLogin');
+            setIsAdmin(userDoc.data()?.isAdmin || false);
             await setDoc(userDocRef, {
               lastLogin: new Date().toISOString(),
             }, { merge: true });
@@ -121,12 +127,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       
       const result = await signInWithPopup(auth, provider);
-      const isUserAdmin = result.user.uid === "AV3EphGFCDOsRRSL09ZHvTj2oaj2";
       
       console.log('Google sign in successful, updating user document...');
-      await setDoc(doc(db, 'users', result.user.uid), {
+      const userRef = doc(db, 'users', result.user.uid);
+      const userDoc = await getDoc(userRef);
+      const isUserAdmin = userDoc.exists() ? userDoc.data()?.isAdmin : result.user.email === 'hello@sendpin.app';
+      
+      const username = generateUsername(result.user.email!, result.user.displayName);
+      await setDoc(userRef, {
         email: result.user.email,
-        name: result.user.displayName,
+        username: username,
+        displayName: result.user.displayName || username,
         photoURL: result.user.photoURL,
         lastLogin: new Date().toISOString(),
         isAdmin: isUserAdmin,
@@ -147,10 +158,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('Starting email sign in...');
       const result = await signInWithEmailAndPassword(auth, email, password);
-      const isUserAdmin = result.user.uid === "AV3EphGFCDOsRRSL09ZHvTj2oaj2";
       
       console.log('Email sign in successful, updating user document...');
-      await setDoc(doc(db, 'users', result.user.uid), {
+      const userRef = doc(db, 'users', result.user.uid);
+      const userDoc = await getDoc(userRef);
+      const isUserAdmin = userDoc.exists() ? userDoc.data()?.isAdmin : email === 'hello@sendpin.app';
+      
+      await setDoc(userRef, {
         email: result.user.email,
         lastLogin: new Date().toISOString(),
         isAdmin: isUserAdmin,
@@ -173,8 +187,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const result = await createUserWithEmailAndPassword(auth, email, password);
       
       console.log('Email sign up successful, creating user document...');
+      const username = generateUsername(email, null);
       await setDoc(doc(db, 'users', result.user.uid), {
         email: result.user.email,
+        username: username,
+        displayName: username,
         createdAt: new Date().toISOString(),
         lastLogin: new Date().toISOString(),
         isAdmin: false,

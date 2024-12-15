@@ -43,13 +43,20 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
 
   const handleApprove = async (submission: SpotSubmission) => {
     setProcessing(submission.id);
-    console.log('Starting approval process for:', {
+    console.log('Starting approval process for submission:', {
       submissionId: submission.id,
       spotId: submission.spotId,
-      userId: submission.userId
+      userId: submission.userId,
+      submitterData: submission.spotData.addedBy
     });
 
     try {
+      // Ensure we have the submitter data
+      if (!submission.spotData.addedBy) {
+        console.error('Missing submitter data in spot submission');
+        return;
+      }
+
       const globalSpotData = {
         ...submission.spotData,
         status: 'published',
@@ -60,14 +67,22 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
         originalSpotId: submission.spotId,
         difficulty: submission.spotData.difficulty,
         material: submission.spotData.material,
-        description: submission.spotData.description
+        description: submission.spotData.description,
+        addedBy: {
+          id: submission.userId,
+          displayName: submission.spotData.addedBy.displayName,
+          username: submission.spotData.addedBy.username,
+          photoURL: submission.spotData.addedBy.photoURL
+        }
       };
 
       console.log('Adding to global spots with data:', globalSpotData);
+      console.log('Submitter info being saved:', globalSpotData.addedBy);
 
       // Add to global spots
       const globalSpotRef = doc(db, 'globalSpots', submission.spotId);
       await setDoc(globalSpotRef, globalSpotData);
+      console.log('Successfully added to global spots');
 
       // Update the original spot's status
       const userSpotRef = doc(db, `users/${submission.userId}/spots`, submission.spotId);
@@ -76,9 +91,10 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
         publishedAt: Date.now(),
         difficulty: submission.spotData.difficulty,
         material: submission.spotData.material,
-        description: submission.spotData.description
+        description: submission.spotData.description,
+        addedBy: globalSpotData.addedBy // Ensure addedBy is updated in user's spot as well
       });
-      console.log('Updated original spot status to published');
+      console.log('Updated original spot with submitter info:', globalSpotData.addedBy);
 
       // Update submission status
       const submissionRef = doc(db, 'spotSubmissions', submission.id);

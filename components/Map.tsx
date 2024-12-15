@@ -10,7 +10,7 @@ import type { LoadScriptProps } from '@react-google-maps/api';
 import { ImageUpload } from "@/components/ui/image-upload";
 import { WeatherInfo } from "@/components/ui/weather-info";
 import { db, storage } from '@/lib/firebase';
-import { collection, addDoc, updateDoc, doc, deleteDoc, getDocs } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, deleteDoc, getDocs, getDoc } from 'firebase/firestore';
 import { ref as storageRef, deleteObject } from 'firebase/storage';
 import { useAuth } from '@/lib/context/auth-context';
 import { SPOT_CATEGORIES } from "@/lib/constants";
@@ -19,6 +19,7 @@ import { OptimizedImage } from "@/components/ui/optimized-image";
 import Link from 'next/link';
 import { useGoogleMaps } from "@/hooks/use-google-maps";
 import { OnboardingOverlay } from '@/components/ui/onboarding-overlay';
+import { toast } from 'react-hot-toast';
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
 declare global {
@@ -417,27 +418,32 @@ const MapComponent = () => {
     if (!user) return;
     
     try {
-      const spots: MarkerData[] = [];
+      const spots = new Map<string, MarkerData>();
 
+      // First load global spots to ensure global status is set correctly
       if (showGlobalSpots) {
         const globalSpotsSnapshot = await getDocs(collection(db, 'globalSpots'));
         globalSpotsSnapshot.forEach((doc) => {
-          spots.push({ ...doc.data() as MarkerData, id: doc.id, isGlobal: true });
+          spots.set(doc.id, { ...doc.data() as MarkerData, id: doc.id, isGlobal: true });
         });
       }
 
+      // Then load personal spots, but don't overwrite global status
       if (showPersonalSpots) {
         const userSpotsSnapshot = await getDocs(collection(db, `users/${user.uid}/spots`));
         userSpotsSnapshot.forEach((doc) => {
-          spots.push({ ...doc.data() as MarkerData, id: doc.id, isGlobal: false });
+          // Only add if not already marked as global
+          if (!spots.has(doc.id)) {
+            spots.set(doc.id, { ...doc.data() as MarkerData, id: doc.id, isGlobal: false });
+          }
         });
       }
 
-      let filteredSpots = spots;
+      let filteredSpots = Array.from(spots.values());
 
       // Only filter by distance if userLocation exists AND we're in "nearby" mode
       if (userLocation && showNearbyOnly) {
-        filteredSpots = spots.filter(spot => {
+        filteredSpots = filteredSpots.filter(spot => {
           const distance = calculateDistanceInMeters(userLocation, spot.position);
           return distance <= maxDistance;
         });
@@ -464,22 +470,49 @@ const MapComponent = () => {
     }
   }, [showGlobalSpots, showPersonalSpots, user, userLocation, maxDistance, activeCategory, searchQuery, showNearbyOnly]);
 
-  // Add a new effect for handling markers on the map
+  // Add this state for forcing map refreshes
+  const [mapKey, setMapKey] = useState(Date.now());
+
+  // Replace both marker effects with a single consolidated one
   useEffect(() => {
     const updateMapMarkers = async () => {
-      if (!mapInstanceRef.current) return;
+      console.log('🔄 Updating map markers');
+      console.log('Current markers count:', markers.length);
+      
+      if (!mapInstanceRef.current) {
+        console.log('❌ No map instance available');
+        return;
+      }
 
       try {
         // Clear existing markers
-        markersMapRef.current.forEach(clearMarker);
+        console.log('🧹 Clearing existing markers');
+        markersMapRef.current.forEach(marker => {
+          if (marker instanceof google.maps.Marker) {
+            marker.setMap(null);
+          } else {
+            marker.map = null;
+          }
+        });
         markersMapRef.current.clear();
 
         // Load the marker library
         const markerLib = await loadMarker();
-        if (!markerLib) return;
+        if (!markerLib) {
+          console.log('❌ Marker library not available');
+          return;
+        }
+
+        // Filter markers based on visibility settings
+        const visibleMarkers = markers.filter(markerData => 
+          (markerData.isGlobal && showGlobalSpots) || 
+          (!markerData.isGlobal && showPersonalSpots)
+        );
+
+        console.log('📍 Adding markers to map:', visibleMarkers.length);
 
         // Add new markers
-        markers.forEach(markerData => {
+        visibleMarkers.forEach(markerData => {
           const marker = new markerLib.AdvancedMarkerElement({
             map: mapInstanceRef.current,
             position: markerData.position,
@@ -495,13 +528,15 @@ const MapComponent = () => {
 
           markersMapRef.current.set(markerData.id, marker);
         });
+
+        console.log('✅ Map markers updated successfully');
       } catch (error) {
-        console.error('Error updating map markers:', error);
+        console.error('❌ Error updating map markers:', error);
       }
     };
 
     updateMapMarkers();
-  }, [markers, loadMarker]);
+  }, [markers, showGlobalSpots, showPersonalSpots, loadMarker]);
 
   // Then define handleCategoryClick
   const handleCategoryClick = useCallback((categoryId: string) => {
@@ -565,43 +600,6 @@ const MapComponent = () => {
   useEffect(() => {
     loadSpots();
   }, [loadSpots, userLocation, activeCategory, isMapView]); // Add isMapView as dependency
-
-  useEffect(() => {
-    if (!mapInstanceRef.current) return;
-
-    // Clear existing markers safely
-    markersMapRef.current.forEach(clearMarker);
-    markersMapRef.current.clear();
-
-    markers.forEach(async (markerData) => {
-      if ((markerData.isGlobal && !showGlobalSpots) || 
-          (!markerData.isGlobal && !showPersonalSpots)) {
-        return;
-      }
-
-      try {
-        const markerLib = await loadMarker();
-        if (markerLib) {
-          const marker = new markerLib.AdvancedMarkerElement({
-            map: mapInstanceRef.current,
-            position: markerData.position,
-            title: markerData.title,
-            content: createMarkerElement(markerData)
-          });
-
-          marker.addListener('click', () => {
-            setSelectedMarker(markerData);
-            setEditingTitle(markerData.title);
-            setSpotState(markerData.id.length >= 20 ? 'locked' : 'new');
-          });
-
-          markersMapRef.current.set(markerData.id, marker);
-        }
-      } catch (error) {
-        console.error('Error creating marker:', error);
-      }
-    });
-  }, [markers, showGlobalSpots, showPersonalSpots, loadMarker]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -778,36 +776,175 @@ const MapComponent = () => {
     }
   };
 
-  const handleDeleteMarker = async () => {
-    if (selectedMarker && user) {
-      try {
-        if (selectedMarker.isGlobal) {
-          if (isAdmin) {
-            await deleteDoc(doc(db, 'globalSpots', selectedMarker.id));
+  // Update handleClosePopup to force a map refresh
+  const handleClosePopup = () => {
+    console.log('🔍 handleClosePopup: Starting cleanup');
+    console.log('Current spotState:', spotState);
+    console.log('Selected Marker:', selectedMarker);
+
+    if (selectedMarker && spotState === 'new') {
+      console.log('📍 Found unsaved marker to remove:', selectedMarker.id);
+      
+      // Remove from map first
+      const marker = markersMapRef.current.get(selectedMarker.id);
+      console.log('Marker found in markersMapRef:', !!marker);
+      
+      if (marker) {
+        console.log('Marker type:', marker instanceof google.maps.Marker ? 'Standard' : 'Advanced');
+        try {
+          if (marker instanceof google.maps.Marker) {
+            marker.setMap(null);
+            console.log('✅ Standard marker removed from map');
           } else {
-            throw new Error('Only admins can delete global spots');
+            marker.map = null;
+            console.log('✅ Advanced marker removed from map');
           }
-        } else {
-          await deleteDoc(doc(db, `users/${user.uid}/spots`, selectedMarker.id));
+          markersMapRef.current.delete(selectedMarker.id);
+          console.log('✅ Marker reference deleted from markersMapRef');
+        } catch (error) {
+          console.error('❌ Error removing marker from map:', error);
         }
-
-        if (selectedMarker.imageUrl) {
-          try {
-            const imageUrl = new URL(selectedMarker.imageUrl);
-            const imagePath = decodeURIComponent(imageUrl.pathname.split('/o/')[1].split('?')[0]);
-            const imageRef = storageRef(storage, imagePath);
-            await deleteObject(imageRef);
-          } catch (imageError) {
-            console.error('Error deleting image:', imageError);
-          }
-        }
-
-        setMarkers(prev => prev.filter(marker => marker.id !== selectedMarker.id));
-        setSelectedMarker(null);
-        
-      } catch (error) {
-        console.error('Error deleting spot:', error);
       }
+      
+      // Then update state
+      setMarkers(prev => {
+        console.log('Previous markers count:', prev.length);
+        const filtered = prev.filter(m => m.id !== selectedMarker.id);
+        console.log('New markers count:', filtered.length);
+        console.log('Removed marker ID:', selectedMarker.id);
+        return filtered;
+      });
+
+      // Force map refresh
+      setMapKey(Date.now());
+    } else {
+      console.log('No unsaved marker to remove or spot is not new');
+    }
+    
+    console.log('🧹 Resetting states');
+    setSelectedMarker(null);
+    setSpotState('new');
+    console.log('✨ Cleanup complete');
+  };
+
+  const handleDeleteMarker = async () => {
+    console.log('🗑️ handleDeleteMarker: Starting deletion process');
+    console.log('Selected Marker:', selectedMarker);
+    console.log('Current User:', user?.uid);
+    console.log('Is Admin:', isAdmin);
+    
+    if (!selectedMarker || !user) {
+      console.log('❌ Missing required data:', { 
+        hasMarker: !!selectedMarker, 
+        hasUser: !!user 
+      });
+      return;
+    }
+    
+    try {
+      // First check if the spot exists in global spots
+      const globalSpotRef = doc(db, 'globalSpots', selectedMarker.id);
+      const globalSpotDoc = await getDoc(globalSpotRef);
+      const isGlobalSpot = globalSpotDoc.exists();
+
+      console.log('🔒 Checking permissions:', {
+        markerCreator: selectedMarker.createdBy,
+        currentUser: user.uid,
+        isAdmin: isAdmin,
+        isGlobalSpot: isGlobalSpot
+      });
+
+      // Permission check: Only admins can delete global spots
+      if (isGlobalSpot && !isAdmin) {
+        console.log('❌ Permission denied: non-admin cannot delete global spots');
+        toast.error('Only admins can delete global spots');
+        return;
+      }
+
+      // Permission check: Regular users can only delete their own non-global spots
+      if (!isAdmin && selectedMarker.createdBy !== user.uid) {
+        console.log('❌ Permission denied: not owner');
+        toast.error('You can only delete your own spots');
+        return;
+      }
+
+      // Remove from map first
+      console.log('📍 Removing marker from map');
+      const marker = markersMapRef.current.get(selectedMarker.id);
+      console.log('Marker found in markersMapRef:', !!marker);
+      
+      if (marker) {
+        console.log('Marker type:', marker instanceof google.maps.Marker ? 'Standard' : 'Advanced');
+        try {
+          if (marker instanceof google.maps.Marker) {
+            marker.setMap(null);
+            console.log('✅ Standard marker removed from map');
+          } else {
+            marker.map = null;
+            console.log('✅ Advanced marker removed from map');
+          }
+          markersMapRef.current.delete(selectedMarker.id);
+          console.log('✅ Marker reference deleted from markersMapRef');
+        } catch (error) {
+          console.error('❌ Error removing marker from map:', error);
+        }
+      }
+      
+      // Update state
+      console.log('🔄 Updating markers state');
+      setMarkers(prev => {
+        console.log('Previous markers count:', prev.length);
+        const filtered = prev.filter(m => m.id !== selectedMarker.id);
+        console.log('New markers count:', filtered.length);
+        console.log('Removed marker ID:', selectedMarker.id);
+        return filtered;
+      });
+      
+      // Delete from database
+      console.log('💾 Starting database operations');
+      if (isGlobalSpot) {
+        // Only admins can reach this point for global spots due to earlier check
+        await deleteDoc(globalSpotRef);
+        console.log('✅ Global spot deleted from database');
+
+        // Also delete from user's spots if it exists there
+        const userSpotRef = doc(db, `users/${selectedMarker.createdBy}/spots`, selectedMarker.id);
+        const userSpotDoc = await getDoc(userSpotRef);
+        if (userSpotDoc.exists()) {
+          await deleteDoc(userSpotRef);
+          console.log('✅ Also deleted from user spots');
+        }
+      } else {
+        await deleteDoc(doc(db, `users/${selectedMarker.createdBy}/spots`, selectedMarker.id));
+        console.log('✅ User spot deleted from database');
+      }
+
+      // Delete image if exists
+      if (selectedMarker.imageUrl?.includes('firebasestorage.googleapis.com')) {
+        console.log('🖼️ Deleting associated image');
+        try {
+          const imageUrl = new URL(selectedMarker.imageUrl);
+          const imagePath = decodeURIComponent(imageUrl.pathname.split('/o/')[1].split('?')[0]);
+          const imageRef = storageRef(storage, imagePath);
+          await deleteObject(imageRef);
+          console.log('✅ Image deleted successfully');
+        } catch (imageError) {
+          console.error('⚠️ Error deleting image:', imageError);
+          // Continue with spot deletion even if image deletion fails
+        }
+      }
+
+      toast.success('Spot deleted successfully');
+      console.log('✨ Delete operation completed successfully');
+      
+      // Reset states after successful deletion
+      console.log('🧹 Resetting states');
+      setSelectedMarker(null);
+      setSpotState('new');
+      
+    } catch (error) {
+      console.error('❌ Error in handleDeleteMarker:', error);
+      toast.error('Failed to delete spot');
     }
   };
 
@@ -1149,6 +1286,7 @@ const MapComponent = () => {
           {/* Map */}
           <div className="absolute inset-0">
             <DynamicGoogleMap
+              key={mapKey}
               center={center}
               zoom={14}
               options={mapOptions}
@@ -1208,39 +1346,47 @@ const MapComponent = () => {
                     {spotState === 'locked' ? selectedMarker.title : 
                      spotState === 'editing' ? 'Edit spot' : 'New spot'}
                   </h3>
-                  {spotState === 'locked' ? (
-                    <button
-                      onClick={() => setSpotState('editing')}
-                      className="p-1.5 rounded-full hover:bg-white/10 transition-colors"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="white"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
+                  {(() => {
+                    console.log('🔍 Spot Details:', {
+                      isGlobal: selectedMarker.isGlobal,
+                      createdBy: selectedMarker.createdBy,
+                      currentUser: user?.uid,
+                      isAdmin: isAdmin,
+                      spotState: spotState
+                    });
+                    
+                    const shouldShowEditButton = spotState === 'locked' && 
+                      (selectedMarker.isGlobal ? isAdmin : selectedMarker.createdBy === user?.uid);
+                    console.log('👉 Should show edit button:', shouldShowEditButton);
+                    
+                    return shouldShowEditButton ? (
+                      <button
+                        onClick={() => setSpotState('editing')}
+                        className="p-1.5 rounded-full hover:bg-white/10 transition-colors"
                       >
-                        <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
-                      </svg>
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        if (spotState === 'new') {
-                          setMarkers(prev => prev.filter(marker => marker.id !== selectedMarker.id));
-                        }
-                        setSelectedMarker(null);
-                        setSpotState('new');
-                      }}
-                      className="p-1.5 rounded-full hover:bg-zinc-600 transition-colors"
-                    >
-                      <X className="h-5 w-5 text-white" />
-                    </button>
-                  )}
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="white"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+                        </svg>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleClosePopup}
+                        className="p-1.5 rounded-full hover:bg-zinc-600 transition-colors"
+                      >
+                        <X className="h-5 w-5 text-white" />
+                      </button>
+                    );
+                  })()}
                 </div>
 
                 {/* Content */}

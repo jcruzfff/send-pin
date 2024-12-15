@@ -11,7 +11,8 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return request.auth.uid == "1DM4FHPG7sQroBhD2wOIf19pO482";
+      return request.auth.uid == "1DM4FHPG7sQroBhD2wOIf19pO482" || 
+             request.auth.token.email == "hello@sendpin.app";
     }
 
     // Posts collection
@@ -32,14 +33,9 @@ service cloud.firestore {
     // Global spots
     match /globalSpots/{spotId} {
       allow read: if true;
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && (
-        resource.data.createdBy == request.auth.uid ||
-        isAdmin()
-      );
-      allow delete: if isAuthenticated() && (
-        resource.data.createdBy == request.auth.uid ||
-        isAdmin()
+      allow create: if isAuthenticated() || isAdmin();
+      allow update, delete: if isAdmin() || (
+        isAuthenticated() && resource.data.createdBy == request.auth.uid
       );
     }
 
@@ -53,38 +49,44 @@ service cloud.firestore {
     // User spots
     match /users/{userId}/spots/{spotId} {
       allow read: if isAuthenticated();
-      allow write: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isAdmin() || isOwner(userId);
+      allow delete: if isAdmin() || isOwner(userId);
     }
 
     // User profiles
     match /users/{userId} {
       allow read: if true;
-      allow create: if isOwner(userId);
+      allow create: if isOwner(userId) && 
+        request.resource.data.keys().hasAll(['email']) &&  // Only require email
+        (!('isAdmin' in request.resource.data) || request.resource.data.isAdmin == false);  // Prevent setting admin on create
       allow update: if isAuthenticated() && (
-        isOwner(userId) || 
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['favorites']) ||
+        (isOwner(userId) && (
+          // Allow updating profile fields
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['displayName', 'photoURL', 'name', 'lastLogin', 'updatedAt']) ||
+          // Or favorites
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['favorites'])
+        )) ||
         isAdmin()
-      );
+      ) && 
+      (!('isAdmin' in request.resource.data) || 
+        (isAdmin() && resource.data.isAdmin == request.resource.data.isAdmin) ||
+        (!isAdmin() && request.resource.data.isAdmin == false)
+      );  // Prevent modifying admin status unless admin
       allow delete: if isOwner(userId);
     }
 
-    // Spot Submissions collection - Updated for better access control
+    // Spot Submissions collection
     match /spotSubmissions/{submissionId} {
-      // Allow users to read their own submissions and admin to read all
       allow read: if isAuthenticated() && (
         (resource != null && resource.data.userId == request.auth.uid) || isAdmin()
       );
-      allow list: if isAuthenticated() && isAdmin();
-      
-      // Allow users to create submissions
+      allow list: if isAdmin();
       allow create: if isAuthenticated() && 
         request.resource.data.userId == request.auth.uid &&
         request.resource.data.status == 'pending';
-      
-      // Allow admin to update/delete submissions
-      allow update: if isAdmin() || (
-        isAuthenticated() && resource.data.userId == request.auth.uid
-      );
+      allow update: if isAdmin();
       allow delete: if isAdmin();
     }
   }

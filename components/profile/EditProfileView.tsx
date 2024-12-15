@@ -39,7 +39,7 @@ export function EditProfileView({ onBack, onProfileUpdate }: EditProfileViewProp
   }, []);
 
   const handleSave = async () => {
-    if (!user || !isChanged) return;
+    if (!user) return;
     
     try {
       setIsSaving(true);
@@ -52,23 +52,35 @@ export function EditProfileView({ onBack, onProfileUpdate }: EditProfileViewProp
         photoURL = await getDownloadURL(imageRef);
       }
 
-      // Update Firebase Auth profile
-      await updateProfile(user, {
-        displayName: username,
-        photoURL: photoURL
-      });
+      const updates: { displayName?: string; photoURL?: string } = {};
+      
+      // Only include fields that have values
+      if (username.trim()) {
+        updates.displayName = username.trim();
+      }
+      if (photoURL) {
+        updates.photoURL = photoURL;
+      }
 
-      // Update or create user document in Firestore
+      // Only update auth profile if there are changes
+      if (Object.keys(updates).length > 0) {
+        await updateProfile(user, updates);
+      }
+
+      // Update Firestore document
       const userRef = doc(db, 'users', user.uid);
       await setDoc(userRef, {
-        displayName: username,
-        photoURL: photoURL,
+        ...(username.trim() ? { displayName: username.trim() } : {}),
+        ...(photoURL ? { photoURL } : {}),
         email: user.email,
         updatedAt: Date.now()
       }, { merge: true });
 
-      // Update parent component
-      onProfileUpdate({ displayName: username, photoURL: photoURL || '' });
+      // Update parent component only with valid data
+      onProfileUpdate({ 
+        displayName: username.trim() || user.email?.split('@')[0] || 'Anonymous User', 
+        photoURL: photoURL || '' 
+      });
       
       toast.success('Profile updated successfully');
       onBack();
@@ -97,7 +109,7 @@ export function EditProfileView({ onBack, onProfileUpdate }: EditProfileViewProp
         {/* User Image Section */}
         <div className="mb-8">
           <h2 className="text-2xl font-semibold mb-2">User image</h2>
-          <p className="text-zinc-400 text-base mb-6">Choose your account image</p>
+          <p className="text-zinc-400 text-base mb-6">Choose your account image (optional)</p>
           
           <div className="relative w-24 h-24">
             <Avatar className="w-full h-full bg-zinc-800">
@@ -106,7 +118,7 @@ export function EditProfileView({ onBack, onProfileUpdate }: EditProfileViewProp
                 alt="Profile"
               />
               <AvatarFallback className="text-lg">
-                {user?.email?.[0].toUpperCase() || '?'}
+                {user?.email?.[0]?.toUpperCase() || '?'}
               </AvatarFallback>
             </Avatar>
             
@@ -127,16 +139,16 @@ export function EditProfileView({ onBack, onProfileUpdate }: EditProfileViewProp
           </div>
         </div>
 
-        {/* Username Section - Updated input styling */}
+        {/* Username Section */}
         <div className="mb-8">
           <h2 className="text-2xl font-semibold mb-2">User name</h2>
-          <p className="text-zinc-400 text-base mb-6">Choose a user name</p>
+          <p className="text-zinc-400 text-base mb-6">Choose a user name (optional)</p>
           
           <input
             type="text"
             value={username}
             onChange={handleUsernameChange}
-            placeholder="Enter username"
+            placeholder={user?.email?.split('@')[0] || "Enter username"}
             className="w-full px-4 py-3 rounded-full bg-zinc-900/50 
                      text-white placeholder:text-zinc-400
                      border border-zinc-800 

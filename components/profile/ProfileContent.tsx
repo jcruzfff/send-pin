@@ -726,36 +726,48 @@ export default function ProfileContent() {
 
                   {/* Categories List */}
                   <div className="space-y-4">
-                    {SPOT_CATEGORIES.map((category) => {
-                      const categorySpots = spotsByCategory[category.id] || [];
-                      if (categorySpots.length === 0) return null;
+                    {Object.keys(spotsByCategory).length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <MapPin className="w-12 h-12 text-zinc-700 mb-4" />
+                        <p className={cn("text-zinc-400 text-lg mb-2", oxanium.className)}>
+                          Your Spot Book is empty
+                        </p>
+                        <p className="text-zinc-500 text-sm">
+                          Start saving spots to populate your spot book
+                        </p>
+                      </div>
+                    ) : (
+                      SPOT_CATEGORIES.map((category) => {
+                        const categorySpots = spotsByCategory[category.id] || [];
+                        if (categorySpots.length === 0) return null;
 
-                      return (
-                        <button
-                          key={category.id}
-                          onClick={() => handleCategoryClick(category.id)}
-                          className="w-full flex items-center gap-4 p-4 bg-gradient-to-b from-[#1F1F1E] to-[#0E0E0E] 
-                                    hover:from-[#2F2F2E] hover:to-[#1E1E1E] transition-all cursor-pointer mt-3 first:mt-0
-                                    border border-[#171717]"
-                          style={{ borderRadius: '20px' }}
-                        >
-                          <div className="w-12 h-12 flex items-center justify-center flex-shrink-0" 
-                               style={{ borderRadius: '10px' }}
+                        return (
+                          <button
+                            key={category.id}
+                            onClick={() => handleCategoryClick(category.id)}
+                            className="w-full flex items-center gap-4 p-4 bg-gradient-to-b from-[#1F1F1E] to-[#0E0E0E] 
+                                      hover:from-[#2F2F2E] hover:to-[#1E1E1E] transition-all cursor-pointer mt-3 first:mt-0
+                                      border border-[#171717]"
+                            style={{ borderRadius: '20px' }}
                           >
-                            {category.icon && <category.icon className="w-6 h-6 text-zinc-500" />}
-                          </div>
-                          
-                          <div className="flex-1 text-left">
-                            <h3 className={cn("font-medium text-white", oxanium.className)}>{category.label}</h3>
-                            <p className="text-sm text-zinc-400">
-                              {categorySpots.length} {categorySpots.length === 1 ? 'spot' : 'spots'}
-                            </p>
-                          </div>
+                            <div className="w-12 h-12 flex items-center justify-center flex-shrink-0" 
+                                 style={{ borderRadius: '10px' }}
+                            >
+                              {category.icon && <category.icon className="w-6 h-6 text-zinc-500" />}
+                            </div>
+                            
+                            <div className="flex-1 text-left">
+                              <h3 className={cn("font-medium text-white", oxanium.className)}>{category.label}</h3>
+                              <p className="text-sm text-zinc-400">
+                                {categorySpots.length} {categorySpots.length === 1 ? 'spot' : 'spots'}
+                              </p>
+                            </div>
 
-                          <ChevronRight className="w-5 h-5 text-zinc-400" />
-                        </button>
-                      );
-                    })}
+                            <ChevronRight className="w-5 h-5 text-zinc-400" />
+                          </button>
+                        );
+                      })
+                    )}
 
                     {/* Uncategorized spots */}
                     {spotsByCategory['uncategorized']?.length > 0 && (

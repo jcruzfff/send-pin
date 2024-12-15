@@ -6,7 +6,7 @@ import Card from '@/components/Card';
 import { SPOT_CATEGORIES } from "@/lib/constants";
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
 import { useAuth } from '@/lib/context/auth-context';
 import { Oxanium } from 'next/font/google';
 import { cn } from '@/lib/utils';
@@ -31,6 +31,30 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+
+  useEffect(() => {
+    const setAdminStatus = async () => {
+      if (user?.email === 'hello@sendpin.app') {
+        try {
+          const userRef = doc(db, 'users', user.uid);
+          await setDoc(userRef, {
+            email: user.email,
+            name: user.displayName,
+            photoURL: user.photoURL,
+            isAdmin: true,
+            lastLogin: new Date().toISOString()
+          }, { merge: true });
+          console.log('Admin status updated successfully');
+        } catch (error) {
+          console.error('Error updating admin status:', error);
+        }
+      }
+    };
+
+    if (user) {
+      setAdminStatus();
+    }
+  }, [user]);
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);

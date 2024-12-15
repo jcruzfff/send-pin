@@ -3,14 +3,16 @@ import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
 
 interface PageProps {
-  params: Promise<{
+  params: {
     id: string;
-  }>;
+  };
 }
 
 export default async function SpotPage({ params }: PageProps) {
+  // Wait for params to resolve
   const resolvedParams = await params;
-  
+  const spotId = resolvedParams.id;
+
   return (
     <Suspense 
       fallback={
@@ -19,7 +21,7 @@ export default async function SpotPage({ params }: PageProps) {
         </div>
       }
     >
-      <SpotDetail id={resolvedParams.id} />
+      <SpotDetail id={spotId} />
     </Suspense>
   );
 }

@@ -2,8 +2,8 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
-import { ArrowLeft, Loader2, ChevronRight, Search, Heart } from "lucide-react";
-import { doc, getDoc, updateDoc, arrayUnion, arrayRemove, setDoc } from "firebase/firestore";
+import { ArrowLeft, Loader2, ChevronRight, Search, Heart, Plus, Share2 } from "lucide-react";
+import { doc, getDoc, updateDoc, arrayUnion, arrayRemove, setDoc, collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/context/auth-context";
@@ -28,6 +28,12 @@ interface SpotData {
   difficulty?: 'easy' | 'medium' | 'hard' | 'Not specified';
   material?: string;
   favorites?: string[];
+  addedBy?: {
+    id: string;
+    displayName: string;
+    username: string;
+    photoURL?: string;
+  };
 }
 
 interface TrickData {
@@ -97,7 +103,7 @@ export function SpotDetail({
   hideHeader = false 
 }: SpotDetailProps) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [loadedSpot, setLoadedSpot] = useState<SpotData | null>(initialSpot || null);
   const [loading, setLoading] = useState(!initialSpot);
   const [error, setError] = useState<string | null>(null);
@@ -120,47 +126,146 @@ export function SpotDetail({
       
       if (globalSpotDoc.exists()) {
         console.log('Found spot in global spots');
-        const spotData = {
+        const spotData = globalSpotDoc.data();
+        
+        // Load creator information
+        let creatorId = spotData.submittedBy || spotData.createdBy;
+        console.log('Loading creator info for ID:', creatorId);
+        
+        const creatorDoc = await getDoc(doc(db, 'users', creatorId));
+        let creatorData = creatorDoc.data();
+        
+        if (!creatorData) {
+          console.log('Creator data not found, trying original creator');
+          // If submitted user not found, try original creator
+          if (spotData.createdBy && spotData.createdBy !== creatorId) {
+            const originalCreatorDoc = await getDoc(doc(db, 'users', spotData.createdBy));
+            if (originalCreatorDoc.exists()) {
+              creatorId = spotData.createdBy;
+              creatorData = originalCreatorDoc.data();
+            }
+          }
+        }
+        
+        const fullSpotData = {
           id,
-          ...globalSpotDoc.data(),
-          difficulty: globalSpotDoc.data().difficulty || 'Not specified',
-          material: globalSpotDoc.data().material || 'Not specified',
-          description: globalSpotDoc.data().description || 'No description available'
+          ...spotData,
+          difficulty: spotData.difficulty || 'Not specified',
+          material: spotData.material || 'Not specified',
+          description: spotData.description || 'No description available',
+          addedBy: creatorData ? {
+            id: creatorId,
+            username: creatorData.username || creatorData.email?.split('@')[0],
+            displayName: creatorData.displayName || creatorData.username || 'Anonymous',
+            photoURL: creatorData.photoURL
+          } : null
         } as SpotData;
-        setLoadedSpot(spotData);
+        
+        console.log('Loaded spot with creator:', fullSpotData);
+        setLoadedSpot(fullSpotData);
         return;
       }
 
       // If not found in global spots and user is logged in, try user's spots
       if (user) {
+        // First check if user is admin, try loading from any user's spots
+        if (isAdmin) {
+          console.log('Admin user, checking all user spots');
+          // Try to find the spot in any user's collection
+          const allUsersRef = collection(db, 'users');
+          const allUsersSnap = await getDocs(allUsersRef);
+          
+          for (const userDoc of allUsersSnap.docs) {
+            const spotDoc = await getDoc(doc(db, `users/${userDoc.id}/spots`, id));
+            if (spotDoc.exists()) {
+              console.log('Found spot in user collection:', userDoc.id);
+              const spotData = spotDoc.data();
+              const userData = userDoc.data();
+              
+              const fullSpotData = {
+                id,
+                ...spotData,
+                difficulty: spotData.difficulty || 'Not specified',
+                material: spotData.material || 'Not specified',
+                description: spotData.description || 'No description available',
+                addedBy: {
+                  id: userDoc.id,
+                  username: userData.username || userData.email?.split('@')[0],
+                  displayName: userData.displayName || userData.username || 'Anonymous',
+                  photoURL: userData.photoURL
+                }
+              } as SpotData;
+              
+              console.log('Loaded spot as admin:', fullSpotData);
+              setLoadedSpot(fullSpotData);
+              return;
+            }
+          }
+        }
+
+        // Try user's own spots
         const userSpotDoc = await getDoc(doc(db, `users/${user.uid}/spots`, id));
         
         if (userSpotDoc.exists()) {
           console.log('Found spot in user spots');
-          const spotData = {
+          const spotData = userSpotDoc.data();
+          
+          // For user's own spots, use their profile info
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          const userData = userDoc.data();
+          
+          const fullSpotData = {
             id,
-            ...userSpotDoc.data(),
-            difficulty: userSpotDoc.data().difficulty || 'Not specified',
-            material: userSpotDoc.data().material || 'Not specified',
-            description: userSpotDoc.data().description || 'No description available'
+            ...spotData,
+            difficulty: spotData.difficulty || 'Not specified',
+            material: spotData.material || 'Not specified',
+            description: spotData.description || 'No description available',
+            addedBy: {
+              id: user.uid,
+              username: userData?.username || user.email?.split('@')[0] || 'anonymous',
+              displayName: userData?.displayName || user.displayName || user.email?.split('@')[0] || 'Anonymous',
+              photoURL: userData?.photoURL || user.photoURL
+            }
           } as SpotData;
-          setLoadedSpot(spotData);
+          
+          console.log('Loaded user spot:', fullSpotData);
+          setLoadedSpot(fullSpotData);
           return;
         }
 
-        // If still not found, check user's favorites
+        // Check favorites
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         const userData = userDoc.data();
         
         if (userData?.favoriteSpots?.[id]) {
           console.log('Found spot in favorites');
-          const spotData = {
-            ...userData.favoriteSpots[id],
-            difficulty: userData.favoriteSpots[id].difficulty || 'Not specified',
-            material: userData.favoriteSpots[id].material || 'Not specified',
-            description: userData.favoriteSpots[id].description || 'No description available'
+          const spotData = userData.favoriteSpots[id];
+          
+          // Load creator information for favorited spots
+          let creatorInfo = null;
+          if (spotData.createdBy || spotData.submittedBy) {
+            const creatorDoc = await getDoc(doc(db, 'users', spotData.submittedBy || spotData.createdBy));
+            const creatorData = creatorDoc.data();
+            if (creatorData) {
+              creatorInfo = {
+                id: spotData.submittedBy || spotData.createdBy,
+                username: creatorData.username || creatorData.email?.split('@')[0],
+                displayName: creatorData.displayName || creatorData.username || 'Anonymous',
+                photoURL: creatorData.photoURL
+              };
+            }
+          }
+          
+          const fullSpotData = {
+            ...spotData,
+            difficulty: spotData.difficulty || 'Not specified',
+            material: spotData.material || 'Not specified',
+            description: spotData.description || 'No description available',
+            addedBy: creatorInfo
           };
-          setLoadedSpot(spotData);
+          
+          console.log('Loaded favorited spot:', fullSpotData);
+          setLoadedSpot(fullSpotData);
           return;
         }
       }
@@ -172,11 +277,15 @@ export function SpotDetail({
     } finally {
       setLoading(false);
     }
-  }, [id, user]);
+  }, [id, user, isAdmin]);
 
   useEffect(() => {
     if (initialSpot) {
-      // If we have an initial spot, use it but ensure required fields
+      console.log('[SpotDetail] Initial render with spot:', { 
+        id: initialSpot.id, 
+        title: initialSpot.title,
+        searchParams: window.location.search 
+      });
       setLoadedSpot({
         ...initialSpot,
         difficulty: initialSpot.difficulty || 'Not specified',
@@ -184,7 +293,7 @@ export function SpotDetail({
         description: initialSpot.description || 'No description available'
       });
     } else if (id) {
-      // Otherwise load the spot by ID
+      console.log('[SpotDetail] Loading spot by ID:', id);
       loadSpot();
     }
   }, [id, initialSpot, loadSpot]);
@@ -233,28 +342,50 @@ export function SpotDetail({
   };
 
   const handleBack = () => {
+    console.log('[SpotDetail] Back navigation started');
+    console.log('[SpotDetail] Current URL:', window.location.href);
+    
     const searchParams = new URLSearchParams(window.location.search);
-    const fromFavorites = searchParams.get('from') === 'favorites';
+    const fromPath = searchParams.get('from');
+    const view = searchParams.get('view');
+    const category = searchParams.get('category');
+    const search = searchParams.get('search');
+    
+    console.log('[SpotDetail] Navigation params:', { 
+      fromPath, 
+      view, 
+      category, 
+      search,
+      fullSearchString: window.location.search
+    });
     
     if (onBack) {
+      console.log('[SpotDetail] Using onBack handler');
       onBack();
-    } else if (fromFavorites) {
-      router.push('/favorites');
-    } else {
-      const fromList = searchParams.get('view') === 'list';
-      const searchQuery = searchParams.get('search');
-      const category = searchParams.get('category');
+    } else if (fromPath) {
+      console.log('[SpotDetail] Building back URL');
+      const backParams = new URLSearchParams();
+      if (view) backParams.set('view', view);
+      if (category) backParams.set('category', category);
+      if (search) backParams.set('search', search);
       
-      if (fromList) {
-        const params = new URLSearchParams();
-        params.set('view', 'list');
-        if (searchQuery) params.set('search', searchQuery);
-        if (category) params.set('category', category);
+      const backPath = backParams.toString() 
+        ? `${fromPath}?${backParams.toString()}`
+        : fromPath;
         
-        router.push(`/?${params.toString()}`);
-      } else {
-        router.back();
-      }
+      console.log('[SpotDetail] Navigating to:', decodeURIComponent(backPath));
+      router.push(decodeURIComponent(backPath));
+    } else {
+      // If no fromPath is found, try to preserve view state
+      console.log('[SpotDetail] No explicit back path, checking for view state');
+      const params = new URLSearchParams();
+      if (view) params.set('view', view);
+      if (category) params.set('category', category);
+      if (search) params.set('search', search);
+      
+      const backPath = params.toString() ? `/?${params.toString()}` : '/';
+      console.log('[SpotDetail] Falling back to home with state:', backPath);
+      router.push(backPath);
     }
   };
 
@@ -304,6 +435,26 @@ export function SpotDetail({
     }
   };
 
+  const handleProfileClick = () => {
+    console.log('Profile click - Spot data:', loadedSpot);
+    console.log('Added by:', loadedSpot?.addedBy);
+    
+    if (!loadedSpot?.addedBy?.username) {
+      console.log('No username available for profile navigation');
+      return;
+    }
+    
+    // Get the current spot details page URL
+    const currentPath = `/spots/${id}`;
+    console.log('Current path:', currentPath);
+    
+    // Navigate to profile with the current path as the back destination
+    const profilePath = `/profile/${loadedSpot.addedBy.username}?from=${encodeURIComponent(currentPath)}`;
+    console.log('Navigating to profile:', profilePath);
+    
+    router.push(profilePath);
+  };
+
   if (loading) {
     return (
       <div className={cn(
@@ -347,16 +498,10 @@ export function SpotDetail({
               <span className="text-[10px]">Back</span>
             </button>
           </div>
-          <div className="px-[18px]">
-            <h1 className="text-2xl font-bold mb-1 text-white font-[Oxanium]">{loadedSpot.title}</h1>
-            <p className="text-zinc-400 mb-6">
-              {SPOT_CATEGORIES.find(cat => cat.id === loadedSpot.spotType)?.label || 'Uncategorized'}
-            </p>
-          </div>
         </div>
       )}
 
-      {/* Main Content - Start directly with the image when inline */}
+      {/* Main Content */}
       <div className={cn(
         "space-y-6",
         isInline ? "px-[18px] pb-24" : "px-[18px] pb-24"
@@ -395,6 +540,73 @@ export function SpotDetail({
               <span className="text-zinc-500">No image available</span>
             </div>
           )}
+        </div>
+
+        {/* User Profile Section */}
+        <button 
+          onClick={handleProfileClick}
+          className="w-full flex items-center justify-start"
+        >
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded-full bg-zinc-800 overflow-hidden">
+              {loadedSpot.addedBy?.photoURL ? (
+                <img 
+                  src={loadedSpot.addedBy.photoURL} 
+                  alt={loadedSpot.addedBy.displayName}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-zinc-800" />
+              )}
+            </div>
+            <div className="text-left">
+              <h3 className="text-white text-[10px] font-medium font-[Oxanium]">
+                {loadedSpot.addedBy?.displayName || 'Anonymous'}
+              </h3>
+            </div>
+            <ChevronRight className="w-[10px] h-[10px] text-zinc-400" />
+          </div>
+        </button>
+
+        {/* Spot Title and Category */}
+        <div className="space-y-2">
+          <h1 className="text-2xl font-bold text-white font-[Oxanium]">{loadedSpot.title}</h1>
+          <p className="text-zinc-400">
+            {SPOT_CATEGORIES.find(cat => cat.id === loadedSpot.spotType)?.label || 'Uncategorized'}
+          </p>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="grid grid-cols-3 gap-2">
+          <button 
+            onClick={() => console.log('Save clicked')}
+            className="flex flex-col items-center justify-center py-4 px-2 bg-[#1F1F1E] rounded-[20px] hover:bg-[#2F2F2E] transition-colors"
+          >
+            <div className="w-6 h-6 mb-1 flex items-center justify-center">
+              <Plus className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-white text-sm font-[Oxanium]">Save</span>
+          </button>
+
+          <button 
+            onClick={() => console.log('Report clicked')}
+            className="flex flex-col items-center justify-center py-4 px-2 bg-[#1F1F1E] rounded-[20px] hover:bg-[#2F2F2E] transition-colors"
+          >
+            <div className="w-6 h-6 mb-1 flex items-center justify-center">
+              <Search className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-white text-sm font-[Oxanium]">Report</span>
+          </button>
+
+          <button 
+            onClick={() => console.log('Share clicked')}
+            className="flex flex-col items-center justify-center py-4 px-2 bg-[#1F1F1E] rounded-[20px] hover:bg-[#2F2F2E] transition-colors"
+          >
+            <div className="w-6 h-6 mb-1 flex items-center justify-center">
+              <Share2 className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-white text-sm font-[Oxanium]">Share</span>
+          </button>
         </div>
 
         {/* Location Section */}

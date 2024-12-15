@@ -6,6 +6,7 @@ import { Viewport } from 'next'
 import { AuthProvider } from '@/lib/context/auth-context'
 import ClientLayout from '@/components/ClientLayout'
 import PullToRefresh from '@/components/PullToRefresh'
+import { Toaster } from 'react-hot-toast';
 
 const inter = Inter({ 
   subsets: ['latin'],
@@ -83,6 +84,29 @@ export default function RootLayout({
             </PullToRefresh>
           </ClientLayout>
         </AuthProvider>
+        <Toaster 
+          position="top-center"
+          toastOptions={{
+            duration: 3000,
+            style: {
+              background: '#1F1F1E',
+              color: '#fff',
+              border: '1px solid #333',
+            },
+            success: {
+              iconTheme: {
+                primary: '#a3ff12',
+                secondary: '#000',
+              },
+            },
+            error: {
+              iconTheme: {
+                primary: '#ff4b4b',
+                secondary: '#000',
+              },
+            },
+          }}
+        />
       </body>
     </html>
   )

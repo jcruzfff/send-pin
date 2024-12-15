@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { EditProfileView } from './EditProfileView';
 import { collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { ChevronLeft, MoreHorizontal, Share2, Trash2 } from 'lucide-react';
+import { ChevronLeft, MoreHorizontal, Share2, Trash2, DollarSign, MessageCircle } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useInView } from 'react-intersection-observer';
 import { deleteObject, ref as storageRef } from 'firebase/storage';
@@ -28,6 +28,7 @@ const oxanium = Oxanium({
 
 interface ProfileViewProps {
   isCurrentUser?: boolean;
+  username?: string;
 }
 
 interface VideoPost {
@@ -76,26 +77,70 @@ function formatTimestamp(timestamp: Timestamp | null): string {
   return `${days}d`;
 }
 
-export function ProfileView({ isCurrentUser = true }: ProfileViewProps): ReactElement {
+export function ProfileView({ isCurrentUser = true, username }: ProfileViewProps): ReactElement {
   const { user } = useAuth();
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [userVideos, setUserVideos] = useState<VideoPost[]>([]);
   const [loading, setLoading] = useState(true);
-  const [profileData, setProfileData] = useState({
-    displayName: user?.displayName || 'Anonymous',
-    photoURL: user?.photoURL || ''
-  });
+  const [activeTab, setActiveTab] = useState<'spots' | 'videos'>('spots');
+  const [profileData, setProfileData] = useState<{
+    displayName: string;
+    photoURL: string | null;
+    uid: string;
+    username?: string;
+  } | null>(null);
+
+  // Load profile data
+  useEffect(() => {
+    const loadProfileData = async () => {
+      setLoading(true);
+      
+      if (isCurrentUser && user) {
+        // For current user, use auth data
+        setProfileData({
+          displayName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
+          photoURL: user.photoURL,
+          uid: user.uid,
+          username: user.email?.split('@')[0]
+        });
+      } else if (username) {
+        try {
+          // Query users collection to find user by username
+          const usersRef = collection(db, 'users');
+          const q = query(usersRef, where('username', '==', username));
+          const snapshot = await getDocs(q);
+
+          if (!snapshot.empty) {
+            const userData = snapshot.docs[0].data();
+            setProfileData({
+              displayName: userData.displayName || username,
+              photoURL: userData.photoURL || null,
+              uid: snapshot.docs[0].id,
+              username: userData.username
+            });
+          } else {
+            console.error('User not found:', username);
+          }
+        } catch (error) {
+          console.error('Error loading user profile:', error);
+        }
+      }
+      setLoading(false);
+    };
+
+    loadProfileData();
+  }, [isCurrentUser, user, username]);
 
   // Fetch user's videos
   useEffect(() => {
     const fetchUserVideos = async () => {
-      if (!user) return;
+      if (!profileData?.uid) return;
 
       try {
         const postsQuery = query(
           collection(db, 'posts'),
-          where('user.id', '==', user.uid),
+          where('user.id', '==', profileData.uid),
           orderBy('timestamp', 'desc')
         );
 
@@ -108,16 +153,20 @@ export function ProfileView({ isCurrentUser = true }: ProfileViewProps): ReactEl
         setUserVideos(videos);
       } catch (error) {
         console.error('Error fetching user videos:', error);
-      } finally {
-        setLoading(false);
       }
     };
 
     fetchUserVideos();
-  }, [user]);
+  }, [profileData?.uid]);
 
   const handleProfileUpdate = (updates: { displayName: string; photoURL: string }) => {
-    setProfileData(updates);
+    // Merge updates with existing profile data
+    if (profileData) {
+      setProfileData({
+        ...profileData,
+        ...updates
+      });
+    }
   };
 
   const handleThumbnailClick = (videoId: string) => {
@@ -296,84 +345,172 @@ export function ProfileView({ isCurrentUser = true }: ProfileViewProps): ReactEl
     );
   };
 
+  if (loading || !profileData) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-white"></div>
+      </div>
+    );
+  }
+
   if (isEditing) {
     return <EditProfileView onBack={() => setIsEditing(false)} onProfileUpdate={handleProfileUpdate} />;
   }
 
   return (
-    <div className="flex flex-col w-full h-full overflow-hidden">
-      {/* Profile Header - Only show in grid view */}
-      <div className="px-[18px] py-4 flex-none relative">
-        <div className="flex items-center gap-4">
-          <Avatar className="w-[72px] h-[72px]">
+    <div className="flex flex-col w-full">
+      {/* Profile Header */}
+      <div className="relative px-4 pt-4">
+        <div className="flex justify-between items-start">
+          <Avatar className="w-24 h-24 rounded-full">
             <AvatarImage
               src={profileData.photoURL || undefined}
               alt={profileData.displayName}
+              className="object-cover"
             />
-            <AvatarFallback className="text-lg text-white">
-              {profileData.displayName[0].toUpperCase()}
+            <AvatarFallback className="text-xl">
+              {profileData.displayName?.[0]?.toUpperCase() || '?'}
             </AvatarFallback>
           </Avatar>
-
-          <div className="flex-1">
-            <h2 className={cn("text-xl font-semibold mb-1 text-white", oxanium.className)}>
-              {profileData.displayName}
-            </h2>
-            <div className="flex gap-4 text-[15px]">
-              <div className="flex gap-1">
-                <span className={cn("text-white", oxanium.className)}>0</span>
-                <span className="text-zinc-400">Followers</span>
-              </div>
-              <div className="flex gap-1">
-                <span className={cn("text-white", oxanium.className)}>0</span>
-                <span className="text-zinc-400">Following</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {isCurrentUser && (
-          <button 
-            onClick={() => setIsEditing(true)}
-            className={cn(
-              "w-full mt-4 py-2 rounded-md bg-zinc-800 hover:bg-zinc-700 transition-colors text-sm font-medium text-white",
-              oxanium.className
-            )}
-          >
-            Edit profile
-          </button>
-        )}
-      </div>
-
-      {/* Content Area */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="grid grid-cols-3 gap-2 px-[2px]">
-          {loading ? (
-            // Videos loading state
-            Array(6).fill(0).map((_, i) => (
-              <div
-                key={`loading-${i}`}
-                className="aspect-square bg-zinc-900 animate-pulse rounded-lg"
-              />
-            ))
-          ) : userVideos.length > 0 ? (
-            // Videos Grid
-            userVideos.map((post) => (
-              <div
-                key={post.id}
-                onClick={() => handleThumbnailClick(post.id)}
-                className="cursor-pointer"
-              >
-                <VideoThumbnail videoUrl={post.video.url} />
-              </div>
-            ))
+          
+          {isCurrentUser ? (
+            <button 
+              onClick={() => setIsEditing(true)}
+              className={cn(
+                "px-4 py-2 rounded-full border border-zinc-700 text-white hover:bg-white/5",
+                "text-sm font-medium transition-colors",
+                oxanium.className
+              )}
+            >
+              Edit profile
+            </button>
           ) : (
-            // Empty videos state
-            <div className="col-span-3 py-8 text-center text-zinc-400">
-              No videos yet
+            <div className="flex items-center gap-2">
+              <button 
+                className={cn(
+                  "w-10 h-10 rounded-full border border-zinc-700 flex items-center justify-center",
+                  "text-white hover:bg-white/5 transition-colors"
+                )}
+              >
+                <DollarSign className="w-5 h-5" />
+              </button>
+              <button 
+                className={cn(
+                  "w-10 h-10 rounded-full border border-zinc-700 flex items-center justify-center",
+                  "text-white hover:bg-white/5 transition-colors"
+                )}
+              >
+                <MessageCircle className="w-5 h-5" />
+              </button>
+              <button 
+                className={cn(
+                  "px-6 py-2 rounded-full bg-[#a3ff12] text-black hover:bg-[#b4ff3d]",
+                  "text-sm font-medium transition-colors",
+                  oxanium.className
+                )}
+              >
+                Follow
+              </button>
             </div>
           )}
         </div>
+
+        {/* Profile Info */}
+        <div className="mt-4">
+          <h1 className={cn("text-xl font-bold text-white", oxanium.className)}>
+            {profileData.displayName}
+          </h1>
+          {profileData.username && (
+            <p className="text-sm text-zinc-400">@{profileData.username}</p>
+          )}
+        </div>
+
+        {/* Stats */}
+        <div className="flex gap-4 mt-4">
+          <button className="text-white hover:underline">
+            <span className={cn("font-bold", oxanium.className)}>460</span>{' '}
+            <span className={cn("text-zinc-500", oxanium.className)}>Following</span>
+          </button>
+          <button className="text-white hover:underline">
+            <span className={cn("font-bold", oxanium.className)}>1230</span>{' '}
+            <span className={cn("text-zinc-500", oxanium.className)}>Followers</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Content Tabs */}
+      <div className="px-4 mt-6">
+        <div className="flex bg-zinc-900 rounded-full p-1">
+          <button
+            onClick={() => setActiveTab('spots')}
+            className={cn(
+              "flex-1 py-3 px-6 rounded-full text-base font-medium transition-colors",
+              oxanium.className,
+              activeTab === 'spots' 
+                ? 'bg-[#a3ff12] text-black' 
+                : 'text-white hover:text-[#a3ff12]'
+            )}
+          >
+            Spots
+          </button>
+          <button
+            onClick={() => setActiveTab('videos')}
+            className={cn(
+              "flex-1 py-3 px-6 rounded-full text-base font-medium transition-colors",
+              oxanium.className,
+              activeTab === 'videos' 
+                ? 'bg-[#a3ff12] text-black' 
+                : 'text-white hover:text-[#a3ff12]'
+            )}
+          >
+            Videos
+          </button>
+        </div>
+      </div>
+
+      {/* Content Area */}
+      <div className="flex-1 overflow-y-auto py-4">
+        {activeTab === 'videos' ? (
+          <div className="grid grid-cols-3 gap-2">
+            {loading ? (
+              Array(6).fill(0).map((_, i) => (
+                <div
+                  key={`loading-${i}`}
+                  className="aspect-square bg-zinc-900 animate-pulse rounded-lg"
+                />
+              ))
+            ) : userVideos.length > 0 ? (
+              userVideos.map((post) => (
+                <div
+                  key={post.id}
+                  onClick={() => handleThumbnailClick(post.id)}
+                  className="cursor-pointer"
+                >
+                  <VideoThumbnail videoUrl={post.video.url} />
+                </div>
+              ))
+            ) : (
+              <div className="col-span-3 py-8 text-center text-zinc-400">
+                No videos yet
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-2">
+            {loading ? (
+              Array(6).fill(0).map((_, i) => (
+                <div
+                  key={`loading-${i}`}
+                  className="aspect-square bg-zinc-900 animate-pulse rounded-lg"
+                />
+              ))
+            ) : (
+              <div className="col-span-3 py-8 text-center text-zinc-400">
+                No spots yet
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

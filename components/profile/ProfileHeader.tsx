@@ -110,10 +110,10 @@ export function ProfileHeader({ showTitle = true, isHome = false }: ProfileHeade
             <Avatar className="w-full h-full">
               <AvatarImage
                 src={user?.photoURL || undefined}
-                alt={user?.displayName || 'Profile'}
+                alt={user?.displayName || 'User'}
               />
-              <AvatarFallback className="text-sm">
-                {user?.email?.[0].toUpperCase() || '?'}
+              <AvatarFallback className="text-sm bg-zinc-800">
+                {user?.email?.[0]?.toUpperCase() || '?'}
               </AvatarFallback>
             </Avatar>
           </button>
@@ -127,18 +127,18 @@ export function ProfileHeader({ showTitle = true, isHome = false }: ProfileHeade
             <Avatar className="w-16 h-16">
               <AvatarImage
                 src={user?.photoURL || undefined}
-                alt={user?.displayName || 'Profile'}
+                alt={user?.displayName || 'User'}
               />
-              <AvatarFallback className="text-xl">
-                {user?.email?.[0].toUpperCase() || '?'}
+              <AvatarFallback className="text-xl bg-zinc-800">
+                {user?.email?.[0]?.toUpperCase() || '?'}
               </AvatarFallback>
             </Avatar>
             <div>
               <h3 className={cn("font-medium text-lg", oxanium.className)}>
-                {user?.displayName || 'Anonymous User'}
+                {user?.displayName || user?.email?.split('@')[0] || 'Anonymous User'}
               </h3>
               <p className="text-sm text-zinc-400">
-                {user?.email}
+                {user?.email || 'No email'}
               </p>
             </div>
           </div>
@@ -181,13 +181,15 @@ export function ProfileHeader({ showTitle = true, isHome = false }: ProfileHeade
               </button>
             )}
             <div className="h-px bg-zinc-800 my-2" />
-            <Link 
-              href="/settings"
-              className={cn("block w-full px-4 py-3 text-left rounded-lg hover:bg-white/10 transition-colors", oxanium.className)}
-              onClick={() => setMenuOpen(false)}
-            >
-              Settings
-            </Link>
+            {isAdmin && (
+              <Link 
+                href="/settings"
+                className={cn("block w-full px-4 py-3 text-left rounded-lg hover:bg-white/10 transition-colors", oxanium.className)}
+                onClick={() => setMenuOpen(false)}
+              >
+                Admin Settings
+              </Link>
+            )}
             <button 
               onClick={() => signOut()}
               className={cn("w-full px-4 py-3 text-left rounded-lg hover:bg-white/10 transition-colors text-red-400", oxanium.className)}
