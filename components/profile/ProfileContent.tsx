@@ -23,6 +23,12 @@ interface RecentSpot {
   imageUrl?: string;
   thumbnailUrl?: string;
   createdAt: number;
+  spotType?: string;
+  position?: {
+    lat: number;
+    lng: number;
+  };
+  description?: string;
 }
 
 interface UserSpot {
@@ -62,7 +68,7 @@ export default function ProfileContent() {
   const { user } = useAuth();
   const [recentSpots, setRecentSpots] = useState<RecentSpot[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('what-to-do');
+  const [activeTab, setActiveTab] = useState('profile');
   const [userSpots, setUserSpots] = useState<UserSpot[]>([]);
   const [spotsByCategory, setSpotsByCategory] = useState<SpotsByCategory>({});
   const [searchQuery, setSearchQuery] = useState('');
@@ -81,9 +87,8 @@ export default function ProfileContent() {
   const [favoriteSpots, setFavoriteSpots] = useState<RecentSpot[]>([]);
 
   const tabs = [
-    { id: 'what-to-do', label: 'What to do' },
+    { id: 'profile', label: 'Media' },
     { id: 'spot-book', label: 'Spot Book' },
-    { id: 'profile', label: 'Profile' },
   ];
 
   const whatToDoListItems = [
@@ -95,21 +100,34 @@ export default function ProfileContent() {
       className: 'w-full flex items-center gap-4 p-4 bg-gradient-to-b from-[#1F1F1E] to-[#0E0E0E] hover:from-[#2F2F2E] hover:to-[#1E1E1E] transition-all cursor-pointer mt-3 first:mt-0 border border-[#171717] rounded-[20px]'
     },
     {
-      id: 'let',
-      title: 'Lets go back',
-      subtitle: 'We gotta go back to this spot',
-      href: '/let',
+      id: 'category',
+      title: 'Category',
+      subtitle: 'Search through all categories',
+      href: '/category',
       className: 'w-full flex items-center gap-4 p-4 bg-gradient-to-b from-[#1F1F1E] to-[#0E0E0E] hover:from-[#2F2F2E] hover:to-[#1E1E1E] transition-all cursor-pointer mt-3 first:mt-0 border border-[#171717] rounded-[20px]'
     }
   ];
 
   const spotCategories = [
-    { id: 'stairs', title: 'Stairs', subtitle: 'Find the perfect set of stairs' },
-    { id: 'rails', title: 'Rails', subtitle: 'Discover rails and handrails' },
-    { id: 'gaps', title: 'Gaps', subtitle: 'Challenge yourself with gaps' },
     { id: 'ledges', title: 'Ledges', subtitle: 'Smooth ledges for grinding' },
-    { id: 'manual-pads', title: 'Manual Pads', subtitle: 'Perfect for technical tricks' },
+    { id: 'rails', title: 'Rails', subtitle: 'Discover rails and handrails' },
+    { id: 'stairs', title: 'Stairs', subtitle: 'Find the perfect set of stairs' },
+    { id: 'gaps', title: 'Gaps', subtitle: 'Challenge yourself with gaps' },
+    { id: 'manuals', title: 'Manuals', subtitle: 'Perfect for technical tricks' },
+    { id: 'banks', title: 'Banks', subtitle: 'Smooth banks and inclines' },
+    { id: 'transitions', title: 'Transitions', subtitle: 'Quarter pipes and transitions' },
+    { id: 'flatground', title: 'Flatground', subtitle: 'Perfect flat spots' },
+    { id: 'parks', title: 'Parks', subtitle: 'Skateparks and facilities' }
   ];
+
+  useEffect(() => {
+    // Get the tab parameter from the URL
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab');
+    if (tabParam && ['profile', 'spot-book'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, []);
 
   useEffect(() => {
     async function loadRecentSpots() {
@@ -129,7 +147,10 @@ export default function ProfileContent() {
             title: data.title,
             imageUrl: data.imageUrl,
             thumbnailUrl: data.thumbnailUrl,
-            createdAt: data.createdAt
+            createdAt: data.createdAt,
+            spotType: data.spotType,
+            position: data.position,
+            description: data.description
           });
         });
 
@@ -357,16 +378,16 @@ export default function ProfileContent() {
   };
 
   return (
-    <div className="h-[calc(100vh-121px)] bg-black overflow-hidden">
-      <div className="max-w-5xl mx-auto px-[18px]">
+    <div className="h-[calc(100vh-121px)]  bg-black overflow-hidden">
+      <div className="max-w-5xl mx-auto">
         {/* Update the tab navigation styling */}
-        <div className="border-b border-zinc-800 h-[41px]">
+        <div className="h-[41px]">
           {activeTab === 'spot-book' && categoryView.isActive ? (
             // Category or Spot Detail Header
-            <div className="flex items-center h-full px-1">
+            <div className="flex items-center h-full px-[18px]">
               <button
                 onClick={spotDetailView.isActive ? handleBackFromSpotDetail : handleBackToCategories}
-                className="inline-flex items-center text-zinc-400 hover:text-white transition-colors absolute left-4"
+                className="inline-flex items-center text-zinc-400 hover:text-white transition-colors"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
@@ -377,231 +398,62 @@ export default function ProfileContent() {
               </h2>
             </div>
           ) : (
-            <nav className="flex justify-around h-full relative" aria-label="Profile tabs">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={cn(
-                    "relative text-sm font-medium flex-1",
-                    oxanium.className,
-                    activeTab === tab.id ? 'text-white' : 'text-zinc-500'
-                  )}
-                >
-                  {tab.label}
-                  {activeTab === tab.id && (
-                    <div 
-                      className="absolute bottom-[-1px] h-[2px] bg-white" 
-                      style={{ 
-                        width: '100%',
-                        transform: 'translateY(50%)'
-                      }} 
-                    />
-                  )}
-                </button>
-              ))}
-            </nav>
+            <div className="px-[18px] relative">
+              <nav className="flex justify-around h-full" aria-label="Profile tabs">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      "relative text-sm font-medium flex-1",
+                      oxanium.className,
+                      activeTab === tab.id ? 'text-white' : 'text-zinc-500'
+                    )}
+                  >
+                    {tab.label}
+                    {activeTab === tab.id && (
+                      <div 
+                        className="absolute z-10 -bottom-[11px] h-[3px] bg-white" 
+                        style={{ 
+                          width: '100%',
+                          transform: 'translateY(50%)'
+                        }} 
+                      />
+                    )}
+                  </button>
+                ))}
+              </nav>
+              <div className="absolute -bottom-[12px] left-[18px] right-[18px] h-[1px] bg-zinc-800" />
+            </div>
           )}
         </div>
 
         {/* Content Area - Now with dynamic height calculations */}
         <div className="h-[calc(100vh-162px)] overflow-hidden">
-          {activeTab === 'what-to-do' && (
+          {activeTab === 'spot-book' && (
             <div className="flex flex-col h-full">
-              {/* Recently Saved Section - Adjusted for viewport */}
-              <div className="mt-[3vh]">
+              {/* Recently Saved Section - Full width */}
+              <div className="mt-[3vh] px-[18px]">
                 <h2 className={cn("text-lg font-medium mb-[2vh] text-white", oxanium.className)}>Recent Saved</h2>
-                <div className="overflow-x-auto hide-scrollbar">
-                  <div className="flex gap-4 pb-[2vh] min-w-max">
-                    {loading ? (
-                      Array(5).fill(0).map((_, i) => (
+              </div>
+              <div className="overflow-x-auto hide-scrollbar">
+                <div className="flex gap-4 pb-[2vh] pl-[18px]">
+                  {loading ? (
+                    <div className="flex gap-4">
+                      {Array(5).fill(0).map((_, i) => (
                         <div
                           key={i}
-                          className="flex-none w-[min(320px,80vw)] h-[min(320px,80vw)] 
-                                   rounded-lg bg-zinc-900/50 animate-pulse"
+                          className="flex-none w-[320px] h-[194px] rounded-[20px] bg-zinc-900/50 animate-pulse last:mr-[18px]"
                         />
-                      ))
-                    ) : recentSpots.length > 0 ? (
-                      recentSpots.map((spot) => (
+                      ))}
+                    </div>
+                  ) : recentSpots.length > 0 ? (
+                    <div className="flex gap-4">
+                      {recentSpots.map((spot) => (
                         <Link
                           key={spot.id}
                           href={`/spots/${spot.id}`}
-                          className="flex-none w-[min(320px,80vw)] h-[min(320px,80vw)] rounded-lg overflow-hidden relative group"
-                        >
-                          {spot.imageUrl ? (
-                            <>
-                              <img
-                                src={spot.thumbnailUrl || spot.imageUrl}
-                                alt={spot.title}
-                                className="w-full h-full object-cover"
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-4">
-                                <p className={cn("text-white text-sm font-medium", oxanium.className)}>
-                                  {spot.title}
-                                </p>
-                              </div>
-                            </>
-                          ) : (
-                            <div className="w-full h-full bg-zinc-900 flex flex-col items-center justify-center gap-2">
-                              <MapPin className="w-8 h-8 text-zinc-700" />
-                              <p className={cn("text-sm text-zinc-500", oxanium.className)}>{spot.title}</p>
-                            </div>
-                          )}
-                        </Link>
-                      ))
-                    ) : (
-                      <div className="w-full text-center py-[2vh] text-zinc-500">
-                        No spots saved yet
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* What to do List Items - Adjusted spacing */}
-              <div className="space-y-[2vh] mt-[3vh]">
-                {whatToDoListItems.map((item) => (
-                  <Link
-                    key={item.id}
-                    href={item.href}
-                    className="w-full flex items-center gap-4 p-4 bg-gradient-to-b from-[#1F1F1E] to-[#0E0E0E] hover:from-[#2F2F2E] hover:to-[#1E1E1E] transition-all cursor-pointer mt-3 first:mt-0 border border-[#171717] rounded-[20px]"
-                  >
-                    <div className="flex-1">
-                      <h3 className={cn("text-[16px] font-medium text-white", oxanium.className)}>{item.title}</h3>
-                      <p className="text-sm text-zinc-400">{item.subtitle}</p>
-                    </div>
-
-                    <ChevronRight className="w-5 h-5 text-zinc-400" />
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Spot Book tab content */}
-          {activeTab === 'spot-book' && (
-            <div className="space-y-6 pt-4">
-              {spotDetailView.isActive && spotDetailView.spot ? (
-                <div className="relative">
-                  <div className="overflow-y-auto">
-                    <SpotDetail 
-                      spot={spotDetailView.spot}
-                      isInline={true}
-                    />
-                  </div>
-                </div>
-              ) : categoryView.isActive ? (
-                // Category View
-                <div className="space-y-6">
-                  {/* Search Bar */}
-                  <div className="relative px-1 py-1">
-                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
-                    <input
-                      type="text"
-                      placeholder={`Search ${SPOT_CATEGORIES.find(cat => cat.id === categoryView.categoryId)?.label.toLowerCase() || 'spots'}...`}
-                      value={searchQuery}
-                      onChange={(e) => handleSearch(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 rounded-full 
-                                 bg-transparent border border-[#171717]
-                                 text-white text-sm placeholder:text-zinc-500
-                                 focus:outline-none focus:ring-1 focus:ring-white/20
-                                 focus:ring-inset"
-                    />
-                  </div>
-
-                  {/* Category Spots List */}
-                  <div className="space-y-4">
-                    {searchQuery.trim() !== '' ? (
-                      // Filtered spots when searching
-                      searchResults
-                        .filter(spot => spot.spotType === categoryView.categoryId)
-                        .length > 0 ? (
-                          searchResults
-                            .filter(spot => spot.spotType === categoryView.categoryId)
-                            .map((spot) => (
-                              <div
-                                key={spot.id}
-                                onClick={() => handleSpotClick(spot)}
-                                className="relative h-[194px] bg-gradient-to-b from-[#1F1F1E] to-[#0E0E0E] hover:from-[#2F2F2E] hover:to-[#1E1E1E] transition-all cursor-pointer"
-                                style={{ borderRadius: '20px' }}
-                              >
-                                {/* Spot Image */}
-                                <div 
-                                  className="absolute top-6 right-3 w-[98px] h-[98px] bg-zinc-800 overflow-hidden"
-                                  style={{ borderRadius: '10px' }}
-                                >
-                                  {spot.imageUrl ? (
-                                    <img
-                                      src={spot.thumbnailUrl || `${spot.imageUrl}?w=98&h=98&q=75`}
-                                      alt={spot.title}
-                                      className="w-full h-full object-cover"
-                                      loading="lazy"
-                                      decoding="async"
-                                      width={98}
-                                      height={98}
-                                    />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center">
-                                      <MapPin className="w-5 h-5 text-[#B9B9B9]" />
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Spot Details */}
-                                <div className="absolute top-8 left-6 flex flex-col">
-                                  <h3 className="text-[14px] font-medium text-white font-[Oxanium]">{spot.title}</h3>
-                                  <div className="mt-1 space-y-2">
-                                    <p className="text-[12px] text-[#B9B9B9]">
-                                      {SPOT_CATEGORIES.find(cat => cat.id === spot.spotType)?.label || 'Uncategorized'}
-                                    </p>
-                                    <p className="text-[12px] text-[#B9B9B9] max-w-[200px]">
-                                      {spot.description || 'Description of the spot or something can go here'}
-                                    </p>
-                                  </div>
-                                </div>
-
-                                {/* Bottom Section with Distance and Directions */}
-                                <div className="absolute bottom-0 left-0 right-0 h-[56px] border-t border-zinc-800 flex items-center justify-between pl-6 pr-3">
-                                  <div className="flex items-center gap-2">
-                                    <MapPin className="w-4 h-4 text-[#B9B9B9]" />
-                                    <span className="text-[12px] text-[#B9B9B9]">
-                                      {userLocation && (
-                                        calculateDistanceInMeters(userLocation, spot.position) < 1000
-                                          ? `${Math.round(calculateDistanceInMeters(userLocation, spot.position))}m away`
-                                          : `${(calculateDistanceInMeters(userLocation, spot.position) / 1000).toFixed(1)}km away`
-                                      )}
-                                    </span>
-                                  </div>
-                                  <button 
-                                    className="h-6 px-4 rounded-[6px] bg-white/10 hover:bg-white/20 transition-colors flex items-center gap-1"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      window.open(
-                                        `https://www.google.com/maps/dir/?api=1&destination=${spot.position.lat},${spot.position.lng}`,
-                                        '_blank'
-                                      );
-                                    }}
-                                  >
-                                    <span className="text-[12px] text-[#B9B9B9] font-[Oxanium]">Directions</span>
-                                    <ChevronRight className="w-3 h-3 text-[#B9B9B9]" />
-                                  </button>
-                                </div>
-                              </div>
-                            ))
-                        ) : (
-                          // No results found
-                          <div className="text-center text-zinc-400 py-8">
-                            No spots found matching "{searchQuery}"
-                          </div>
-                        )
-                    ) : (
-                      // Show all category spots when not searching
-                      (spotsByCategory[categoryView.categoryId!] || []).map((spot) => (
-                        <div
-                          key={spot.id}
-                          onClick={() => handleSpotClick(spot)}
-                          className="relative h-[194px] bg-gradient-to-b from-[#1F1F1E] to-[#0E0E0E] hover:from-[#2F2F2E] hover:to-[#1E1E1E] transition-all cursor-pointer"
-                          style={{ borderRadius: '20px' }}
+                          className="flex-none w-[340px] h-[194px] bg-gradient-to-b from-[#1F1F1E] to-[#0E0E0E] hover:from-[#2F2F2E] hover:to-[#1E1E1E] transition-all cursor-pointer border border-[#171717] rounded-[20px] relative overflow-hidden last:mr-[18px]"
                         >
                           {/* Spot Image */}
                           <div 
@@ -610,13 +462,9 @@ export default function ProfileContent() {
                           >
                             {spot.imageUrl ? (
                               <img
-                                src={spot.thumbnailUrl || `${spot.imageUrl}?w=98&h=98&q=75`}
+                                src={spot.thumbnailUrl || spot.imageUrl}
                                 alt={spot.title}
                                 className="w-full h-full object-cover"
-                                loading="lazy"
-                                decoding="async"
-                                width={98}
-                                height={98}
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center">
@@ -627,13 +475,17 @@ export default function ProfileContent() {
 
                           {/* Spot Details */}
                           <div className="absolute top-8 left-6 flex flex-col">
-                            <h3 className="text-[14px] font-medium text-white font-[Oxanium]">{spot.title}</h3>
+                            <h3 className={cn("text-[14px] font-medium text-white", oxanium.className)}>{spot.title}</h3>
                             <div className="mt-1 space-y-2">
-                              <p className="text-[12px] text-[#B9B9B9]">
+                              <p className="text-[12px] text-zinc-400">
                                 {SPOT_CATEGORIES.find(cat => cat.id === spot.spotType)?.label || 'Uncategorized'}
                               </p>
-                              <p className="text-[12px] text-[#B9B9B9] max-w-[200px]">
-                                {spot.description || 'Description of the spot or something can go here'}
+                              <p className="text-[12px] text-zinc-400 max-w-[170px]">
+                                {spot.description 
+                                  ? spot.description.length > 40 
+                                    ? `${spot.description.slice(0, 40)}...` 
+                                    : spot.description
+                                  : ''}
                               </p>
                             </div>
                           </div>
@@ -641,12 +493,14 @@ export default function ProfileContent() {
                           {/* Bottom Section with Distance and Directions */}
                           <div className="absolute bottom-0 left-0 right-0 h-[56px] border-t border-zinc-800 flex items-center justify-between pl-6 pr-3">
                             <div className="flex items-center gap-2">
-                              <MapPin className="w-4 h-4 text-[#B9B9B9]" />
-                              <span className="text-[12px] text-[#B9B9B9]">
-                                {userLocation && (
+                              <MapPin className="w-4 h-4 text-zinc-400" />
+                              <span className="text-[12px] text-zinc-400">
+                                {userLocation && spot.position ? (
                                   calculateDistanceInMeters(userLocation, spot.position) < 1000
                                     ? `${Math.round(calculateDistanceInMeters(userLocation, spot.position))}m away`
                                     : `${(calculateDistanceInMeters(userLocation, spot.position) / 1000).toFixed(1)}km away`
+                                ) : (
+                                  '0.8 miles away'
                                 )}
                               </span>
                             </div>
@@ -655,143 +509,48 @@ export default function ProfileContent() {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 window.open(
-                                  `https://www.google.com/maps/dir/?api=1&destination=${spot.position.lat},${spot.position.lng}`,
+                                  `https://www.google.com/maps/dir/?api=1&destination=${spot.position?.lat},${spot.position?.lng}`,
                                   '_blank'
                                 );
                               }}
                             >
-                              <span className="text-[12px] text-[#B9B9B9] font-[Oxanium]">Directions</span>
-                              <ChevronRight className="w-3 h-3 text-[#B9B9B9]" />
+                              <span className="text-[12px] text-white font-[Oxanium]">Directions</span>
+                              <ChevronRight className="w-3 h-3 text-white" />
                             </button>
                           </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="w-full text-center py-[2vh] text-zinc-500">
+                      No spots saved yet
+                    </div>
+                  )}
                 </div>
-              ) : (
-                // Original Categories View
-                <>
-                  {/* Search Bar */}
-                  <div className="relative px-1 py-1">
-                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
-                    <input
-                      type="text"
-                      placeholder="Search your spots..."
-                      value={searchQuery}
-                      onChange={(e) => handleSearch(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 rounded-full 
-                                 bg-transparent border border-[#171717]
-                                 text-white text-sm placeholder:text-zinc-500
-                                 focus:outline-none focus:ring-1 focus:ring-white/20
-                                 focus:ring-inset"
-                    />
+              </div>
 
-                    {/* Search Results Dropdown */}
-                    {isSearching && searchResults.length > 0 && (
-                      <div className="absolute top-full left-0 right-0 mt-2 max-h-60 overflow-y-auto 
-                                    rounded-lg bg-zinc-900 border border-zinc-800 shadow-lg z-50">
-                        {searchResults.map((spot) => (
-                          <Link
-                            key={spot.id}
-                            href={`/spots/${spot.id}`}
-                            className="flex items-center gap-3 p-3 hover:bg-zinc-800 transition-colors"
-                          >
-                            <div className="w-10 h-10 bg-zinc-800 rounded-md overflow-hidden flex-shrink-0">
-                              {spot.imageUrl ? (
-                                <img
-                                  src={spot.thumbnailUrl || spot.imageUrl}
-                                  alt=""
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <MapPin className="w-4 h-4 text-zinc-500" />
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex-1">
-                              <h4 className="font-medium text-white">{spot.title}</h4>
-                              {spot.spotType && (
-                                <p className="text-sm text-zinc-400">
-                                  {SPOT_CATEGORIES.find(cat => cat.id === spot.spotType)?.label || 'Uncategorized'}
-                                </p>
-                              )}
-                            </div>
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+              {/* Search Title */}
+              <div className="mt-[3vh] px-[18px]">
+                <h2 className={cn("text-lg font-medium mb-[2vh] text-white", oxanium.className)}>Search</h2>
+              </div>
 
-                  {/* Categories List */}
-                  <div className="space-y-4">
-                    {Object.keys(spotsByCategory).length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-12 text-center">
-                        <MapPin className="w-12 h-12 text-zinc-700 mb-4" />
-                        <p className={cn("text-zinc-400 text-lg mb-2", oxanium.className)}>
-                          Your Spot Book is empty
-                        </p>
-                        <p className="text-zinc-500 text-sm">
-                          Start saving spots to populate your spot book
-                        </p>
-                      </div>
-                    ) : (
-                      SPOT_CATEGORIES.map((category) => {
-                        const categorySpots = spotsByCategory[category.id] || [];
-                        if (categorySpots.length === 0) return null;
+              {/* What to do List Items - Keep padding */}
+              <div className="space-y-[2vh] px-[18px]">
+                {whatToDoListItems.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    className={item.className}
+                  >
+                    <div className="flex-1">
+                      <h3 className={cn("text-[16px] font-medium text-white", oxanium.className)}>{item.title}</h3>
+                      <p className="text-sm text-zinc-400">{item.subtitle}</p>
+                    </div>
 
-                        return (
-                          <button
-                            key={category.id}
-                            onClick={() => handleCategoryClick(category.id)}
-                            className="w-full flex items-center gap-4 p-4 bg-gradient-to-b from-[#1F1F1E] to-[#0E0E0E] 
-                                      hover:from-[#2F2F2E] hover:to-[#1E1E1E] transition-all cursor-pointer mt-3 first:mt-0
-                                      border border-[#171717]"
-                            style={{ borderRadius: '20px' }}
-                          >
-                            <div className="w-12 h-12 flex items-center justify-center flex-shrink-0" 
-                                 style={{ borderRadius: '10px' }}
-                            >
-                              {category.icon && <category.icon className="w-6 h-6 text-zinc-500" />}
-                            </div>
-                            
-                            <div className="flex-1 text-left">
-                              <h3 className={cn("font-medium text-white", oxanium.className)}>{category.label}</h3>
-                              <p className="text-sm text-zinc-400">
-                                {categorySpots.length} {categorySpots.length === 1 ? 'spot' : 'spots'}
-                              </p>
-                            </div>
-
-                            <ChevronRight className="w-5 h-5 text-zinc-400" />
-                          </button>
-                        );
-                      })
-                    )}
-
-                    {/* Uncategorized spots */}
-                    {spotsByCategory['uncategorized']?.length > 0 && (
-                      <Link
-                        href="/spots?category=uncategorized"
-                        className="flex items-center p-4 bg-zinc-900 hover:bg-zinc-800 rounded-lg transition-colors text-left"
-                      >
-                        <div className="h-12 w-12 rounded-full border-2 border-dashed border-muted-foreground/25 flex items-center justify-center">
-                          <MapPin className="w-6 h-6 text-muted-foreground" />
-                        </div>
-                        
-                        <div className="ml-4 flex-1">
-                          <h3 className="font-medium text-white">Uncategorized</h3>
-                          <p className="text-sm text-zinc-400">
-                            {spotsByCategory['uncategorized'].length} {spotsByCategory['uncategorized'].length === 1 ? 'spot' : 'spots'}
-                          </p>
-                        </div>
-
-                        <ChevronRight className="w-5 h-5 text-zinc-400" />
-                      </Link>
-                    )}
-                  </div>
-                </>
-              )}
+                    <ChevronRight className="w-5 h-5 text-zinc-400" />
+                  </Link>
+                ))}
+              </div>
             </div>
           )}
 

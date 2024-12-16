@@ -88,7 +88,7 @@ export function ProfileView({ isCurrentUser = true, username }: ProfileViewProps
   const [isEditing, setIsEditing] = useState(false);
   const [userVideos, setUserVideos] = useState<VideoPost[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'spots' | 'videos'>('spots');
+  const [activeTab, setActiveTab] = useState<'spots' | 'videos'>('videos');
   const [profileData, setProfileData] = useState<{
     displayName: string;
     photoURL: string | null;
@@ -563,18 +563,6 @@ export function ProfileView({ isCurrentUser = true, username }: ProfileViewProps
       <div className="px-4 mt-6">
         <div className="flex bg-zinc-900 rounded-full p-1">
           <button
-            onClick={() => setActiveTab('spots')}
-            className={cn(
-              "flex-1 py-3 px-6 rounded-full text-base font-medium transition-colors",
-              oxanium.className,
-              activeTab === 'spots' 
-                ? 'bg-[#a3ff12] text-black' 
-                : 'text-white hover:text-[#a3ff12]'
-            )}
-          >
-            Spots
-          </button>
-          <button
             onClick={() => setActiveTab('videos')}
             className={cn(
               "flex-1 py-3 px-6 rounded-full text-base font-medium transition-colors",
@@ -585,6 +573,18 @@ export function ProfileView({ isCurrentUser = true, username }: ProfileViewProps
             )}
           >
             Videos
+          </button>
+          <button
+            onClick={() => setActiveTab('spots')}
+            className={cn(
+              "flex-1 py-3 px-6 rounded-full text-base font-medium transition-colors",
+              oxanium.className,
+              activeTab === 'spots' 
+                ? 'bg-[#a3ff12] text-black' 
+                : 'text-white hover:text-[#a3ff12]'
+            )}
+          >
+            Spots
           </button>
         </div>
       </div>

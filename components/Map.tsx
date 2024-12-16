@@ -122,6 +122,7 @@ interface MarkerData {
   status?: 'draft' | 'submitted' | 'published';
   createdAt: number;
   updatedAt?: number;
+  description?: string;
 }
 
 // When creating a new marker, spread the data
@@ -1640,7 +1641,11 @@ const MapComponent = () => {
                             {SPOT_CATEGORIES.find(cat => cat.id === marker.spotType)?.label || 'Uncategorized'}
                           </p>
                           <p className="text-[12px] text-zinc-400 max-w-[200px]">
-                            Description of the spot or something can go here
+                            {marker.description 
+                              ? marker.description.length > 65 
+                                ? `${marker.description.slice(0, 65)}...` 
+                                : marker.description
+                              : ''}
                           </p>
                         </div>
                       </div>

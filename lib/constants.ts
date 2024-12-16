@@ -5,55 +5,55 @@ export const SPOT_CATEGORIES = [
     id: 'ledges', 
     label: 'Ledges',
     icon: MapPin,
-    description: 'Perfect for grinds and slides'
+    description: 'Smooth ledges for grinding and sliding'
   },
   { 
     id: 'rails', 
     label: 'Rails',
     icon: MapPin,
-    description: 'Time to get technical'
+    description: 'Handrails and technical rail spots'
   },
   { 
     id: 'stairs', 
     label: 'Stairs',
     icon: MapPin,
-    description: 'Send it down these sets'
+    description: 'Perfect stair sets for all levels'
   },
   { 
     id: 'gaps', 
     label: 'Gaps',
     icon: MapPin,
-    description: 'Clear these obstacles'
+    description: 'Challenge yourself with various gaps'
   },
   { 
     id: 'manuals', 
-    label: 'Manual Pads',
+    label: 'Manuals',
     icon: MapPin,
-    description: 'Balance and precision'
+    description: 'Manual pads and manual spots'
   },
   { 
     id: 'banks', 
     label: 'Banks',
     icon: MapPin,
-    description: 'Smooth transitions'
+    description: 'Smooth banks and inclines'
   },
   { 
     id: 'transitions', 
     label: 'Transitions',
     icon: MapPin,
-    description: 'Flow and carve'
+    description: 'Quarter pipes and transition spots'
   },
   { 
     id: 'flatground', 
-    label: 'Flat Ground',
+    label: 'Flatground',
     icon: MapPin,
-    description: 'Perfect for technical tricks'
+    description: 'Perfect flat spots for street skating'
   },
   { 
     id: 'parks', 
-    label: 'Skateparks',
+    label: 'Parks',
     icon: MapPin,
-    description: 'All-in-one spots'
+    description: 'Skateparks and skate facilities'
   }
 ] as const;
 
