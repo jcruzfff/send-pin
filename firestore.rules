@@ -57,14 +57,12 @@ service cloud.firestore {
     // User profiles
     match /users/{userId} {
       allow read: if true;
-      allow create: if isOwner(userId) && 
-        request.resource.data.keys().hasAll(['email']) &&  // Only require email
-        (!('isAdmin' in request.resource.data) || request.resource.data.isAdmin == false);  // Prevent setting admin on create
+      allow create: if isAuthenticated() && request.auth.uid == userId;
       allow update: if isAuthenticated() && (
         (isOwner(userId) && (
-          // Allow updating profile fields
+          // Allow updating any profile fields for the owner
           request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['displayName', 'photoURL', 'name', 'lastLogin', 'updatedAt']) ||
+            .hasAny(['displayName', 'username', 'photoURL', 'lastLogin', 'updatedAt', 'setupComplete']) ||
           // Or favorites
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['favorites'])
         )) ||

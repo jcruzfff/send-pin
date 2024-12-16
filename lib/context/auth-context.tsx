@@ -76,14 +76,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               createdAt: new Date().toISOString(),
               lastLogin: new Date().toISOString(),
               isAdmin: user.email === 'hello@sendpin.app',
+              setupComplete: false,
             });
-            localStorage.setItem('isFirstLogin', 'true');
+            router.push('/setup');
           } else {
             console.log('User document exists, updating lastLogin');
             setIsAdmin(userDoc.data()?.isAdmin || false);
-            await setDoc(userDocRef, {
-              lastLogin: new Date().toISOString(),
-            }, { merge: true });
+            
+            // Check if setup is complete
+            if (!userDoc.data()?.setupComplete) {
+              router.push('/setup');
+            } else {
+              await setDoc(userDocRef, {
+                lastLogin: new Date().toISOString(),
+              }, { merge: true });
+            }
           }
         } catch (err) {
           console.error('Error checking user document:', err);
@@ -95,11 +102,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const searchParams = new URLSearchParams(window.location.search);
         const hasOobCode = searchParams.has('oobCode');
         const isResetPasswordPage = pathname === '/reset-password';
+        const isSetupPage = pathname === '/setup';
 
         console.log('Auth state - not logged in:', {
           pathname,
           hasOobCode,
-          isResetPasswordPage
+          isResetPasswordPage,
+          isSetupPage
         });
 
         // Only redirect if we're not on the reset password page with an oobCode
@@ -128,17 +137,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       const result = await signInWithPopup(auth, provider);
       
-      console.log('Google sign in successful, updating user document...');
+      console.log('Google sign in successful, checking user document...');
       const userRef = doc(db, 'users', result.user.uid);
       const userDoc = await getDoc(userRef);
-      const isUserAdmin = userDoc.exists() ? userDoc.data()?.isAdmin : result.user.email === 'hello@sendpin.app';
       
-      const username = generateUsername(result.user.email!, result.user.displayName);
+      if (!userDoc.exists()) {
+        console.log('Creating new user document...');
+        const username = generateUsername(result.user.email!, result.user.displayName);
+        await setDoc(userRef, {
+          email: result.user.email,
+          username: username,
+          displayName: result.user.displayName || username,
+          photoURL: result.user.photoURL,
+          createdAt: new Date().toISOString(),
+          lastLogin: new Date().toISOString(),
+          isAdmin: result.user.email === 'hello@sendpin.app',
+          setupComplete: false,
+        });
+        console.log('Redirecting to setup page...');
+        router.replace('/setup');
+        return;
+      }
+
+      // Existing user
+      const isUserAdmin = userDoc.data()?.isAdmin || result.user.email === 'hello@sendpin.app';
+      
+      // Check if setup is complete
+      if (!userDoc.data()?.setupComplete) {
+        console.log('Setup not complete, redirecting to setup...');
+        router.replace('/setup');
+        return;
+      }
+
       await setDoc(userRef, {
-        email: result.user.email,
-        username: username,
-        displayName: result.user.displayName || username,
-        photoURL: result.user.photoURL,
         lastLogin: new Date().toISOString(),
         isAdmin: isUserAdmin,
       }, { merge: true });

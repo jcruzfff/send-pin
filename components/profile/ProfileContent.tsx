@@ -83,7 +83,7 @@ export default function ProfileContent() {
   const tabs = [
     { id: 'what-to-do', label: 'What to do' },
     { id: 'spot-book', label: 'Spot Book' },
-    { id: 'profile', label: 'My Posts' },
+    { id: 'profile', label: 'Profile' },
   ];
 
   const whatToDoListItems = [

@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/context/auth-context';
 import { AvatarImage, Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { EditProfileView } from './EditProfileView';
-import { collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, Timestamp, doc, updateDoc, setDoc, deleteDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { ChevronLeft, MoreHorizontal, Share2, Trash2, DollarSign, MessageCircle } from 'lucide-react';
 import type { ReactElement } from 'react';
@@ -19,7 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { deleteDoc, doc } from 'firebase/firestore';
+import { useRouter } from 'next/navigation';
 
 const oxanium = Oxanium({ 
   subsets: ['latin'],
@@ -62,6 +62,11 @@ interface UserSpot {
 
 type ViewMode = 'grid' | 'feed';
 
+interface FollowStats {
+  followers: number;
+  following: number;
+}
+
 function formatTimestamp(timestamp: Timestamp | null): string {
   if (!timestamp) return '';
   
@@ -90,22 +95,28 @@ export function ProfileView({ isCurrentUser = true, username }: ProfileViewProps
     uid: string;
     username?: string;
   } | null>(null);
+  const [followStats, setFollowStats] = useState<FollowStats>({ followers: 0, following: 0 });
+  const [isFollowing, setIsFollowing] = useState(false);
+  const router = useRouter();
 
   // Load profile data
   useEffect(() => {
     const loadProfileData = async () => {
       setLoading(true);
       
-      if (isCurrentUser && user) {
-        // For current user, use auth data
-        setProfileData({
-          displayName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
-          photoURL: user.photoURL,
-          uid: user.uid,
-          username: user.email?.split('@')[0]
-        });
-      } else if (username) {
-        try {
+      try {
+        if (isCurrentUser && user) {
+          // For current user, get data from Firestore
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          const userData = userDoc.data();
+          
+          setProfileData({
+            displayName: userData?.displayName || user.displayName || 'Anonymous',
+            photoURL: userData?.photoURL || user.photoURL,
+            uid: user.uid,
+            username: userData?.username || user.email?.split('@')[0]
+          });
+        } else if (username) {
           // Query users collection to find user by username
           const usersRef = collection(db, 'users');
           const q = query(usersRef, where('username', '==', username));
@@ -122,11 +133,12 @@ export function ProfileView({ isCurrentUser = true, username }: ProfileViewProps
           } else {
             console.error('User not found:', username);
           }
-        } catch (error) {
-          console.error('Error loading user profile:', error);
         }
+      } catch (error) {
+        console.error('Error loading user profile:', error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     loadProfileData();
@@ -158,6 +170,45 @@ export function ProfileView({ isCurrentUser = true, username }: ProfileViewProps
 
     fetchUserVideos();
   }, [profileData?.uid]);
+
+  // Load follow stats
+  useEffect(() => {
+    if (!profileData?.uid) return;
+
+    const unsubscribe = onSnapshot(
+      doc(db, 'users', profileData.uid),
+      (doc) => {
+        const data = doc.data();
+        setFollowStats({
+          followers: data?.followersCount || 0,
+          following: data?.followingCount || 0
+        });
+      }
+    );
+
+    return () => unsubscribe();
+  }, [profileData?.uid]);
+
+  // Check if current user is following this profile
+  useEffect(() => {
+    if (!user || !profileData?.uid || isCurrentUser) return;
+
+    const checkFollowStatus = async () => {
+      try {
+        const followDoc = await getDocs(
+          query(
+            collection(db, `users/${user.uid}/following`),
+            where('userId', '==', profileData.uid)
+          )
+        );
+        setIsFollowing(!followDoc.empty);
+      } catch (error) {
+        console.error('Error checking follow status:', error);
+      }
+    };
+
+    checkFollowStatus();
+  }, [user, profileData?.uid, isCurrentUser]);
 
   const handleProfileUpdate = (updates: { displayName: string; photoURL: string }) => {
     // Merge updates with existing profile data
@@ -345,6 +396,67 @@ export function ProfileView({ isCurrentUser = true, username }: ProfileViewProps
     );
   };
 
+  const handleFollow = async () => {
+    if (!user || !profileData?.uid || isCurrentUser) return;
+
+    try {
+      const followingRef = doc(db, `users/${user.uid}/following`, profileData.uid);
+      const followerRef = doc(db, `users/${profileData.uid}/followers`, user.uid);
+      const currentUserRef = doc(db, 'users', user.uid);
+      const targetUserRef = doc(db, 'users', profileData.uid);
+
+      if (!isFollowing) {
+        // Get current user's data from Firestore
+        const currentUserDoc = await getDoc(currentUserRef);
+        const currentUserData = currentUserDoc.data();
+
+        // Follow
+        const followData = {
+          userId: profileData.uid,
+          username: profileData.username,
+          displayName: profileData.displayName,
+          photoURL: profileData.photoURL,
+          timestamp: Date.now()
+        };
+
+        const followerData = {
+          userId: user.uid,
+          username: currentUserData?.username || user.email?.split('@')[0],
+          displayName: currentUserData?.displayName || user.displayName,
+          photoURL: currentUserData?.photoURL || user.photoURL,
+          timestamp: Date.now()
+        };
+
+        await Promise.all([
+          setDoc(followingRef, followData),
+          setDoc(followerRef, followerData),
+          updateDoc(currentUserRef, {
+            followingCount: (followStats.following || 0) + 1
+          }),
+          updateDoc(targetUserRef, {
+            followersCount: (followStats.followers || 0) + 1
+          })
+        ]);
+      } else {
+        // Unfollow
+        await Promise.all([
+          deleteDoc(followingRef),
+          deleteDoc(followerRef),
+          updateDoc(currentUserRef, {
+            followingCount: Math.max((followStats.following || 0) - 1, 0)
+          }),
+          updateDoc(targetUserRef, {
+            followersCount: Math.max((followStats.followers || 0) - 1, 0)
+          })
+        ]);
+      }
+
+      setIsFollowing(!isFollowing);
+    } catch (error) {
+      console.error('Error updating follow status:', error);
+    }
+  };
+
   if (loading || !profileData) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -403,13 +515,16 @@ export function ProfileView({ isCurrentUser = true, username }: ProfileViewProps
                 <MessageCircle className="w-5 h-5" />
               </button>
               <button 
+                onClick={handleFollow}
                 className={cn(
-                  "px-6 py-2 rounded-full bg-[#a3ff12] text-black hover:bg-[#b4ff3d]",
-                  "text-sm font-medium transition-colors",
-                  oxanium.className
+                  "px-6 py-2 rounded-full text-sm font-medium transition-colors",
+                  oxanium.className,
+                  isFollowing
+                    ? "border border-zinc-700 text-white hover:bg-white/5"
+                    : "bg-[#a3ff12] text-black hover:bg-[#b4ff3d]"
                 )}
               >
-                Follow
+                {isFollowing ? 'Following' : 'Follow'}
               </button>
             </div>
           )}
@@ -427,12 +542,18 @@ export function ProfileView({ isCurrentUser = true, username }: ProfileViewProps
 
         {/* Stats */}
         <div className="flex gap-4 mt-4">
-          <button className="text-white hover:underline">
-            <span className={cn("font-bold", oxanium.className)}>460</span>{' '}
+          <button 
+            onClick={() => router.push(`/profile/${profileData.username}/following`)}
+            className="text-white hover:underline"
+          >
+            <span className={cn("font-bold", oxanium.className)}>{followStats.following}</span>{' '}
             <span className={cn("text-zinc-500", oxanium.className)}>Following</span>
           </button>
-          <button className="text-white hover:underline">
-            <span className={cn("font-bold", oxanium.className)}>1230</span>{' '}
+          <button 
+            onClick={() => router.push(`/profile/${profileData.username}/followers`)}
+            className="text-white hover:underline"
+          >
+            <span className={cn("font-bold", oxanium.className)}>{followStats.followers}</span>{' '}
             <span className={cn("text-zinc-500", oxanium.className)}>Followers</span>
           </button>
         </div>

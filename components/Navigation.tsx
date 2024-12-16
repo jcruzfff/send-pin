@@ -17,7 +17,7 @@ const Navigation = () => {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
 
-  if (!user || pathname === '/feed/new') return null;
+  if (!user || pathname === '/feed/new' || pathname === '/setup') return null;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-black z-50">

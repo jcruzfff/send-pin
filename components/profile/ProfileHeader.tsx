@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/context/auth-context';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
 import { FirebaseError } from 'firebase/app';
 import { db } from '@/lib/firebase';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -30,6 +30,11 @@ export function ProfileHeader({ showTitle = true, isHome = false }: ProfileHeade
   const [showSpotSubmission, setShowSpotSubmission] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [userData, setUserData] = useState<{
+    displayName: string | null;
+    username: string | null;
+    photoURL: string | null;
+  } | null>(null);
 
   // Debug logging
   useEffect(() => {
@@ -92,6 +97,29 @@ export function ProfileHeader({ showTitle = true, isHome = false }: ProfileHeade
     loadPendingCount();
   }, [isAdmin, user]);
 
+  // Load user data from Firestore
+  useEffect(() => {
+    const loadUserData = async () => {
+      if (!user) return;
+      
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setUserData({
+            displayName: data.displayName || null,
+            username: data.username || null,
+            photoURL: data.photoURL || null,
+          });
+        }
+      } catch (error) {
+        console.error('Error loading user data:', error);
+      }
+    };
+
+    loadUserData();
+  }, [user]);
+
   return (
     <>
       <div className="sticky top-0 z-[100] bg-black w-full h-[65px] text-white">
@@ -109,11 +137,11 @@ export function ProfileHeader({ showTitle = true, isHome = false }: ProfileHeade
             <div className="absolute inset-[-1px] rounded-full border border-zinc-700 group-hover:border-zinc-600 transition-colors text-white" />
             <Avatar className="w-full h-full">
               <AvatarImage
-                src={user?.photoURL || undefined}
-                alt={user?.displayName || 'User'}
+                src={userData?.photoURL || user?.photoURL || undefined}
+                alt={userData?.displayName || user?.displayName || 'User'}
               />
               <AvatarFallback className="text-sm bg-zinc-800">
-                {user?.email?.[0]?.toUpperCase() || '?'}
+                {(userData?.displayName || user?.email)?.[0]?.toUpperCase() || '?'}
               </AvatarFallback>
             </Avatar>
           </button>
@@ -126,20 +154,20 @@ export function ProfileHeader({ showTitle = true, isHome = false }: ProfileHeade
           <div className="flex items-center gap-4 mb-8">
             <Avatar className="w-16 h-16">
               <AvatarImage
-                src={user?.photoURL || undefined}
-                alt={user?.displayName || 'User'}
+                src={userData?.photoURL || user?.photoURL || undefined}
+                alt={userData?.displayName || user?.displayName || 'User'}
               />
               <AvatarFallback className="text-xl bg-zinc-800">
-                {user?.email?.[0]?.toUpperCase() || '?'}
+                {(userData?.displayName || user?.email)?.[0]?.toUpperCase() || '?'}
               </AvatarFallback>
             </Avatar>
             <div>
               <h3 className={cn("font-medium text-lg", oxanium.className)}>
-                {user?.displayName || user?.email?.split('@')[0] || 'Anonymous User'}
+                {userData?.displayName || user?.displayName || 'Anonymous User'}
               </h3>
-              <p className="text-sm text-zinc-400">
-                {user?.email || 'No email'}
-              </p>
+              {userData?.username && (
+                <p className="text-sm text-zinc-400">@{userData.username}</p>
+              )}
             </div>
           </div>
 
