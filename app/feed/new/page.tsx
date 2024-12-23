@@ -11,6 +11,8 @@ import { useAuth } from '@/lib/context/auth-context';
 import { getLocationFromCoordinates } from '@/lib/google-maps';
 import { Oxanium } from 'next/font/google';
 import { cn } from '@/lib/utils';
+import { useUploadStore } from '@/lib/store/upload-store';
+import { nanoid } from 'nanoid';
 
 const oxanium = Oxanium({
   subsets: ['latin'],
@@ -199,13 +201,50 @@ const NewPostPage = () => {
     setIsSharing(true);
     setShareError(null);
 
+    // Create a unique ID for this upload
+    const uploadId = nanoid();
+
+    // Format username properly from display name or email
+    const formatUsername = (displayName: string | null, email: string | null) => {
+      if (displayName) {
+        // Remove spaces and special characters, convert to lowercase
+        return displayName.toLowerCase().replace(/[^a-z0-9]/g, '');
+      }
+      if (email) {
+        // Get everything before @ and remove special characters
+        return email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+      }
+      return 'anonymous';
+    };
+
+    const username = formatUsername(user.displayName, user.email);
+
+    // Add uploading post to the store
+    useUploadStore.getState().addUploadingPost({
+      id: uploadId,
+      progress: 0,
+      user: {
+        id: user.uid,
+        name: user.displayName || 'Anonymous',
+        username: username,
+        avatar: user.photoURL || undefined
+      },
+      spot: {
+        id: selectedSpot.id,
+        name: selectedSpot.title,
+        location: selectedSpot.location
+      },
+      trick: trick.trim()
+    });
+
+    // Navigate to feed immediately
+    router.push('/feed');
+
     try {
       console.log('Compressing video...');
+      useUploadStore.getState().updateProgress(uploadId, 5);
       const compressedVideo = await compressVideo(videoBlob);
-      console.log('Video compressed:', {
-        originalSize: videoBlob.size / 1024 / 1024, // MB
-        compressedSize: compressedVideo.size / 1024 / 1024 // MB
-      });
+      useUploadStore.getState().updateProgress(uploadId, 20);
 
       console.log('Starting video upload...');
       const videoRef = ref(storage, `videos/${user.uid}/${Date.now()}.mp4`);
@@ -216,50 +255,68 @@ const NewPostPage = () => {
       uploadTask.on(
         'state_changed',
         (snapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          console.log('Upload progress:', progress + '%');
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 80;
+          useUploadStore.getState().updateProgress(uploadId, 20 + progress);
         },
         (error) => {
           console.error('Upload error:', error);
           setShareError('Error uploading video: ' + error.message);
+          useUploadStore.getState().removeUploadingPost(uploadId);
+        },
+        async () => {
+          try {
+            const videoUrl = await getDownloadURL(videoRef);
+            console.log('Video URL obtained');
+            useUploadStore.getState().updateProgress(uploadId, 95);
+
+            console.log('Creating post document...');
+            const postData = {
+              user: {
+                id: user.uid,
+                name: user.displayName || 'Anonymous',
+                username: username,
+                avatar: user.photoURL || undefined
+              },
+              spot: {
+                id: selectedSpot.id,
+                name: selectedSpot.title,
+                location: selectedSpot.location
+              },
+              video: {
+                url: videoUrl
+              },
+              trick: trick.trim(),
+              likes: 0,
+              timestamp: serverTimestamp(),
+              createdAt: serverTimestamp()
+            };
+
+            console.log('Post data:', postData);
+            const postRef = await addDoc(collection(db, 'posts'), postData);
+            console.log('Post created successfully with ID:', postRef.id);
+            useUploadStore.getState().updateProgress(uploadId, 100);
+            
+            // Remove the uploading post after a brief delay
+            setTimeout(() => {
+              console.log('Removing upload placeholder');
+              useUploadStore.getState().removeUploadingPost(uploadId);
+              // The feed page will auto-refresh due to the interval
+            }, 500);
+
+          } catch (error) {
+            console.error('Error creating post:', error);
+            useUploadStore.getState().removeUploadingPost(uploadId);
+            if (error instanceof Error) {
+              setShareError(`Failed to create post: ${error.message}`);
+            } else {
+              setShareError('Failed to create post. Please try again.');
+            }
+          }
         }
       );
-
-      await uploadTask;
-      console.log('Video upload complete');
-
-      const videoUrl = await getDownloadURL(videoRef);
-      console.log('Video URL obtained');
-
-      console.log('Creating post document...');
-      const postData = {
-        user: {
-          id: user.uid,
-          name: user.displayName || 'Anonymous',
-          username: user.email?.split('@')[0] || 'anonymous',
-          avatar: user.photoURL
-        },
-        spot: {
-          id: selectedSpot.id,
-          name: selectedSpot.title,
-          location: selectedSpot.location
-        },
-        video: {
-          url: videoUrl
-        },
-        trick: trick.trim(),
-        likes: 0,
-        timestamp: serverTimestamp(),
-        createdAt: serverTimestamp()
-      };
-
-      console.log('Post data:', postData);
-      await addDoc(collection(db, 'posts'), postData);
-
-      router.push('/feed');
-      
     } catch (error) {
       console.error('Error sharing post:', error);
+      useUploadStore.getState().removeUploadingPost(uploadId);
       if (error instanceof Error) {
         setShareError(`Failed to share post: ${error.message}`);
       } else {

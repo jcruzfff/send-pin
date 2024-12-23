@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { NotificationCenter } from '@/components/admin/NotificationCenter';
 import { Oxanium } from 'next/font/google';
 import { cn } from '@/lib/utils';
+import { Zap, Loader2 } from 'lucide-react';
 
 const oxanium = Oxanium({
   subsets: ['latin'],
@@ -22,9 +23,16 @@ const oxanium = Oxanium({
 interface ProfileHeaderProps {
   showTitle?: boolean;
   isHome?: boolean;
+  showXP?: boolean;
+  xpAmount?: number;
 }
 
-export function ProfileHeader({ showTitle = true, isHome = false }: ProfileHeaderProps) {
+export function ProfileHeader({ 
+  showTitle = true, 
+  isHome = false,
+  showXP = false,
+  xpAmount = 0
+}: ProfileHeaderProps) {
   const { user, signOut, isAdmin } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [showSpotSubmission, setShowSpotSubmission] = useState(false);
@@ -35,6 +43,7 @@ export function ProfileHeader({ showTitle = true, isHome = false }: ProfileHeade
     username: string | null;
     photoURL: string | null;
   } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Debug logging
   useEffect(() => {
@@ -100,7 +109,10 @@ export function ProfileHeader({ showTitle = true, isHome = false }: ProfileHeade
   // Load user data from Firestore
   useEffect(() => {
     const loadUserData = async () => {
-      if (!user) return;
+      if (!user) {
+        setIsLoading(false);
+        return;
+      }
       
       try {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
@@ -114,6 +126,8 @@ export function ProfileHeader({ showTitle = true, isHome = false }: ProfileHeade
         }
       } catch (error) {
         console.error('Error loading user data:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -124,10 +138,19 @@ export function ProfileHeader({ showTitle = true, isHome = false }: ProfileHeade
     <>
       <div className="sticky top-0 z-[100] bg-black w-full h-[65px] text-white">
         <div className="flex justify-between items-center px-[18px] py-4 max-w-5xl mx-auto w-full h-full text-white">
-          {isHome ? (
-            <h1 className={cn("text-lg text-white font-semibold", oxanium.className)}>Spottt</h1>
+          {showXP ? (
+            <div className="flex items-center gap-1 bg-zinc-900/80 rounded-full px-3 py-1.5 border border-zinc-800">
+              <Zap className="w-4 h-4 text-[#B2FF4D]" />
+              <span className={cn("text-zinc-400 text-sm font-medium", oxanium.className)}>
+                {xpAmount.toLocaleString()}
+              </span>
+            </div>
           ) : (
-            showTitle && <h1 className={cn("text-lg text-white font-semibold", oxanium.className)}>Profile</h1>
+            isHome ? (
+              <h1 className={cn("text-lg text-white font-semibold", oxanium.className)}>Spottt</h1>
+            ) : (
+              showTitle && <h1 className={cn("text-lg text-white font-semibold", oxanium.className)}>Profile</h1>
+            )
           )}
           
           <button 
@@ -141,7 +164,11 @@ export function ProfileHeader({ showTitle = true, isHome = false }: ProfileHeade
                 alt={userData?.displayName || user?.displayName || 'User'}
               />
               <AvatarFallback className="text-sm bg-zinc-800">
-                {(userData?.displayName || user?.email)?.[0]?.toUpperCase() || '?'}
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
+                ) : (
+                  (userData?.displayName || user?.displayName)?.[0]?.toUpperCase() || '?'
+                )}
               </AvatarFallback>
             </Avatar>
           </button>
@@ -158,7 +185,11 @@ export function ProfileHeader({ showTitle = true, isHome = false }: ProfileHeade
                 alt={userData?.displayName || user?.displayName || 'User'}
               />
               <AvatarFallback className="text-xl bg-zinc-800">
-                {(userData?.displayName || user?.email)?.[0]?.toUpperCase() || '?'}
+                {isLoading ? (
+                  <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                ) : (
+                  (userData?.displayName || user?.displayName)?.[0]?.toUpperCase() || '?'
+                )}
               </AvatarFallback>
             </Avatar>
             <div>

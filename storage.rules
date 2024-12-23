@@ -1,8 +1,32 @@
 rules_version = '2';
+
 service firebase.storage {
   match /b/{bucket}/o {
-    match /{allPaths=**} {
-      allow read, write: if true;
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Allow read access to all videos
+    match /videos/{userId}/{videoId} {
+      allow read: if true;
+      allow write: if isOwner(userId);
+      allow delete: if isOwner(userId);
+    }
+
+    // Profile images
+    match /profile-images/{userId} {
+      allow read: if true;
+      allow write: if isOwner(userId);
+    }
+
+    // Spot images
+    match /spot-images/{imageId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
   }
 } 
